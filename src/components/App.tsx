@@ -6,12 +6,12 @@ import Keywords from './Keywords'
 import { ADD } from '/src/Job'
 import { HIGHLIGHTS } from '/src/Keyword'
 
-function App() {
+function App(props) {
 	const [showsJobs, setShowsJobs] = useState(true)
 
 	const [jobsMode, setJobsMode] = useState(ADD)
 	const [jobsIndex, setJobsIndex] = useState(0)
-	const [jobs, setJobs] = useState([])
+	const { jobs, setJobs } = props
 
 	const [highlights, setHighlights] = useState(HIGHLIGHTS)
 
@@ -33,11 +33,11 @@ function App() {
 			{showsJobs ? (
 				<Jobs
 					mode={jobsMode}
-					setAppJobsMode={setJobsMode}
+					setMode={setJobsMode}
 					jobs={jobs}
-					setAppJobs={setJobs}
+					setJobs={setJobs}
 					index={jobsIndex}
-					setAppJobsIndex={setJobsIndex}
+					setIndex={setJobsIndex}
 					highlights={highlights}
 					setHighlights={setHighlights}
 				/>

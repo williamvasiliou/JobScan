@@ -1,0 +1,59 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Color {
+  id    Int    @id @default(autoincrement())
+  color String @unique
+
+  labels Label[]
+}
+
+model Label {
+  id    Int    @id @default(autoincrement())
+  label String @unique
+
+  color   Color @relation(fields: [colorId], references: [id])
+  colorId Int
+
+  keywords KeywordsOnLabels[]
+}
+
+model Keyword {
+  id      Int    @id @default(autoincrement())
+  keyword String @unique
+
+  labels KeywordsOnLabels[]
+}
+
+model KeywordsOnLabels {
+  label     Label   @relation(fields: [labelId], references: [id])
+  labelId   Int
+  keyword   Keyword @relation(fields: [keywordId], references: [id])
+  keywordId Int
+
+  @@id([labelId, keywordId])
+}
+
+model Job {
+  id       Int       @id @default(autoincrement())
+  title    String
+  url      String?
+  sections Section[]
+}
+
+model Section {
+  id      Int    @id @default(autoincrement())
+  header  String
+  content String
+  job     Job    @relation(fields: [jobId], references: [id])
+  jobId   Int
+}

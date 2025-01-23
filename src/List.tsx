@@ -15,6 +15,31 @@ export const create = (item) => {
 	})
 }
 
+export const linked = (items) => {
+	const length = items.length
+
+	if (length > 0) {
+		const nodes = items.map(node)
+		const head = nodes[0]
+		const tail = nodes[length - 1]
+
+		for (let i = 1; i < length - 1; ++i) {
+			nodes[i].previous = nodes[i - 1]
+			nodes[i].next = nodes[i + 1]
+		}
+
+		if (length > 1) {
+			head.next = nodes[1]
+			tail.previous = nodes[length - 2]
+		}
+
+		return ({
+			head: head,
+			tail: tail,
+		})
+	}
+}
+
 export const remove = (list, node) => {
 	const previous = node.previous
 	const next = node.next

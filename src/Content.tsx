@@ -1,5 +1,5 @@
 import { VIEWING } from './Action'
-import { create as List } from './List'
+import { create as List, linked, items } from './List'
 
 export const trim = (string) => string.trim()
 export const nonEmpty = (string) => string.length > 0
@@ -32,6 +32,11 @@ export const Section = {
 		newHeader: header,
 		content: content,
 		newContent: content,
+	}),
+	fromPrisma: (section) => Section.create(section.header, section.content),
+	toPrisma: ({ header, content }) => ({
+		header: header,
+		content: content,
 	}),
 	newSplitContent: (line, lines) => {
 		const content = {
@@ -70,4 +75,21 @@ export const job = (title, url, header, content) => ({
 	newUrl: url,
 	isEditing: false,
 	sections: List(Section.create(header, content)),
+})
+
+export const fromPrisma = ({ title, url, sections }) => ({
+	title: title,
+	newTitle: title,
+	url: url,
+	newUrl: url,
+	isEditing: false,
+	sections: linked(sections.map(Section.fromPrisma)),
+})
+
+export const toPrisma = ({ title, url, sections }) => ({
+	data: {
+		title: title,
+		url: url,
+		sections: items(sections.map(Section.toPrisma)),
+	},
 })

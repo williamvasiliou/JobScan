@@ -109,31 +109,30 @@ function Highlighted(props) {
 		label: highlight.label,
 		intervals: intervals(highlight.regex, content),
 		checked: checkedHighlights[key],
-	}))
+	})).filter((highlight) => highlight.intervals.length > 0)
+
 
 	function checkHighlight(key, checked) {
 		checkedHighlights[key] = checked
 		props.setCheckedHighlights([...checkedHighlights])
 	}
 
-	const labels = highlights
-		.filter((highlight) => highlight.intervals.length > 0)
-		.map((highlight) => (
-			<span key={highlight.key}>
-				<input
-					id={`section-${index}-${highlight.key}`}
-					type='checkbox'
-					defaultChecked={highlight.checked}
-					onChange={(e) => checkHighlight(highlight.key, e.target.checked)}
-				/>
-				<label
-					className={highlight.checked ? 'highlighted' : ''}
-					htmlFor={`section-${index}-${highlight.key}`}
-				>
-					{highlight.label}
-				</label>
-			</span>
-		))
+	const labels = highlights.map((highlight) => (
+		<span key={highlight.key}>
+			<input
+				id={`section-${index}-${highlight.key}`}
+				type='checkbox'
+				defaultChecked={highlight.checked}
+				onChange={(e) => checkHighlight(highlight.key, e.target.checked)}
+			/>
+			<label
+				className={highlight.checked ? 'highlighted' : ''}
+				htmlFor={`section-${index}-${highlight.key}`}
+			>
+				{highlight.label}
+			</label>
+		</span>
+	))
 
 	return (
 		<>

@@ -1,5 +1,3 @@
-import { useState } from 'react'
-
 import JobAdd from '/src/forms/JobAdd'
 import JobList from './JobList'
 import Job from './Job'
@@ -8,36 +6,40 @@ import * as Content from '/src/Content'
 import * as JOB from '/src/Job'
 
 function Jobs(props) {
-	const [mode, setMode] = useState(props.mode)
+	const {
+		mode, setMode,
+		jobs, setJobs,
+		index, setIndex,
+		highlights, setHighlights,
+	} = props
 
-	const [jobsIndex, setJobsIndex] = useState(props.index)
-	const [jobs, setJobs] = useState(props.jobs)
-
-	function setAppState(appState, state) {
-		return (newState) => {
-			appState(newState)
-			state(newState)
-		}
-	}
-
-	const setAppJobs = setAppState(props.setAppJobs, setJobs)
-	const setAppJobsMode = setAppState(props.setAppJobsMode, setMode)
-	const setAppJobsIndex = setAppState(props.setAppJobsIndex, setJobsIndex)
-
-	function addJob(title, url, header, content) {
+	async function addJob(title, url, header, content) {
 		const jobTitle = Content.newTitle(title)
 		const jobUrl = url.trim()
 		const jobHeader = Content.newTitle(header)
 		const jobContent = Content.newContent(content)
 
-		if (jobTitle && jobHeader && jobContent) {
-			setAppJobs([
+		const response = await fetch('http://localhost:5173/jobs', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				title: jobTitle,
+				url: jobUrl,
+				header: jobHeader,
+				content: jobContent,
+			}),
+		})
+
+		if (response.ok) {
+			setJobs([
 				...jobs,
-				Content.job(jobTitle, jobUrl, jobHeader, jobContent),
+				(await response.json()).data,
 			])
 
-			setAppJobsIndex(jobs.length)
-			setAppJobsMode(JOB.VIEW)
+			setIndex(jobs.length)
+			setMode(JOB.VIEW)
 			return true
 		}
 
@@ -50,15 +52,15 @@ function Jobs(props) {
 
 	function viewJob(index) {
 		if (hasJob(index)) {
-			setAppJobsIndex(index)
-			setAppJobsMode(JOB.VIEW)
+			setIndex(index)
+			setMode(JOB.VIEW)
 		}
 	}
 
 	function updateJob(index, update) {
 		if (hasJob(index)) {
 			jobs[index] = update(jobs[index])
-			setAppJobs(jobs)
+			setJobs(jobs)
 		}
 	}
 
@@ -86,11 +88,11 @@ function Jobs(props) {
 		() => (
 			<Job
 				jobs={jobs}
-				index={jobsIndex}
+				index={index}
 				updateJob={updateJob}
 				getJob={getJob}
-				highlights={props.highlights}
-				setHighlights={props.setHighlights}
+				highlights={highlights}
+				setHighlights={setHighlights}
 			/>
 		),
 	]
@@ -100,9 +102,9 @@ function Jobs(props) {
 			{jobs.length > 0 ? (
 				<>
 					{mode === JOB.LIST ? (
-						<button onClick={() => setAppJobsMode(JOB.ADD)}>New Job</button>
+						<button onClick={() => setMode(JOB.ADD)}>New Job</button>
 					) : (
-						<button onClick={() => setAppJobsMode(JOB.LIST)}>Back</button>
+						<button onClick={() => setMode(JOB.LIST)}>Back</button>
 					)}
 					<br/>
 					{views[mode]()}
