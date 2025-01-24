@@ -58,15 +58,9 @@ app.all('*', async (req, res) => {
 		let template = await fs.readFile('./index.html', 'utf-8')
 		template = await vite.transformIndexHtml(url, template)
 
-		const { render } = await vite.ssrLoadModule('/src/entry-server.tsx')
-		const { head, html } = await render(url)
-
 		res.status(200).set({
 			'Content-Type': 'text/html',
-		}).end(template
-			.replace('<!--app-head-->', head ?? '')
-			.replace('<!--app-html-->', html ?? '')
-		)
+		}).end(template)
 	} catch(e) {
 		vite.ssrFixStacktrace(e)
 		console.log(e.stack)

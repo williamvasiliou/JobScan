@@ -1,9 +1,17 @@
 import { StrictMode } from 'react'
 import { renderToString } from 'react-dom/server'
-import Prisma from './components/Prisma'
+import App from './components/App'
 
-export const render = () => renderToString(
-	<StrictMode>
-		<Prisma/>
-	</StrictMode>,
-)
+import { job } from './Prisma'
+
+export const render = async () => {
+	const jobs = await job.findMany()
+
+	return renderToString(
+		<StrictMode>
+			<App
+				jobs={jobs}
+			/>
+		</StrictMode>,
+	)
+}
