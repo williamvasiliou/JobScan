@@ -5,6 +5,8 @@ import Job from './Job'
 import * as Content from '/src/Content'
 import * as JOB from '/src/Job'
 
+import { fetchCreate } from '/src/Prisma'
+
 function Jobs(props) {
 	const {
 		mode, setMode,
@@ -19,23 +21,17 @@ function Jobs(props) {
 		const jobHeader = Content.newTitle(header)
 		const jobContent = Content.newContent(content)
 
-		const response = await fetch('http://localhost:5173/jobs', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({
-				title: jobTitle,
-				url: jobUrl,
-				header: jobHeader,
-				content: jobContent,
-			}),
+		const job = await fetchCreate('/jobs', {
+			title: jobTitle,
+			url: jobUrl,
+			header: jobHeader,
+			content: jobContent,
 		})
 
-		if (response.ok) {
+		if (job) {
 			setJobs([
 				...jobs,
-				(await response.json()).data,
+				job.data,
 			])
 
 			setIndex(jobs.length)

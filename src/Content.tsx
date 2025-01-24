@@ -20,9 +20,8 @@ export const list = (items, item) => {
 }
 
 export const Section = {
-	key: 0,
-	create: (header, content) => ({
-		key: ++Section.key,
+	create: (key, header, content) => ({
+		key: key,
 		isExpanded: true,
 		action: {
 			type: VIEWING,
@@ -33,10 +32,12 @@ export const Section = {
 		content: content,
 		newContent: content,
 	}),
-	fromPrisma: (section) => Section.create(section.header, section.content),
+	fromPrisma: ({ id, header, content }) => Section.create(id, header, content),
 	toPrisma: ({ header, content }) => ({
-		header: header,
-		content: content,
+		data: {
+			header: header,
+			content: content,
+		},
 	}),
 	newSplitContent: (line, lines) => {
 		const content = {
@@ -68,16 +69,8 @@ export const Section = {
 	},
 }
 
-export const job = (title, url, header, content) => ({
-	title: title,
-	newTitle: title,
-	url: url,
-	newUrl: url,
-	isEditing: false,
-	sections: List(Section.create(header, content)),
-})
-
-export const fromPrisma = ({ title, url, sections }) => ({
+export const fromPrisma = ({ id, title, url, sections }) => ({
+	key: id,
 	title: title,
 	newTitle: title,
 	url: url,
@@ -90,6 +83,6 @@ export const toPrisma = ({ title, url, sections }) => ({
 	data: {
 		title: title,
 		url: url,
-		sections: items(sections.map(Section.toPrisma)),
+		sections: items(sections).map(Section.toPrisma),
 	},
 })
