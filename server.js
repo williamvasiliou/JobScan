@@ -21,34 +21,118 @@ app.use(vite.middlewares)
 
 app.use(express.json())
 
+const err = (err, res) => {
+	console.log(err)
+	res.status(500).json({})
+}
+
+const prismaQuery = async (res, query) => {
+	try {
+		const json = await query()
+
+		if (json) {
+			res.status(200).json(json)
+		} else {
+			throw new Error()
+		}
+	} catch (e) {
+		err(e, res)
+	}
+}
+
 app.get('/jobs', async (req, res) => {
-	res.status(200).json({
-		jobs: await prisma.job.findMany(),
-	})
+	try {
+		const start = Number(req.query?.start)
+
+		if (isNaN(start)) {
+			res.status(200).json(await prisma.job.findMany())
+		} else if (start > 0) {
+			res.status(200).json(await prisma.job.findManyStart(start))
+		} else {
+			throw new Error()
+		}
+	} catch(e) {
+		err(e, res)
+	}
+})
+
+app.get('/jobs/:id/id', async (req, res) => {
+	await prismaQuery(res, async () => await prisma.job.findUniqueSelect(Number(req.params?.id)))
+})
+
+app.get('/jobs/:id', async (req, res) => {
+	await prismaQuery(res, async () => await prisma.job.findUnique(Number(req.params?.id)))
 })
 
 app.post('/jobs', async (req, res) => {
 	const body = req.body
 
-	try {
-		const job = await prisma.job.create(
+	await prismaQuery(res, async () => (
+		await prisma.job.create(
 			body?.title,
 			body?.url,
 			body?.header,
 			body?.content,
 		)
+	))
+})
 
-		if (job) {
-			res.status(200).json({
-				data: job,
-			})
-		} else {
-			throw new Error()
-		}
-	} catch (e) {
-		console.log(e)
-		res.status(500).json({})
-	}
+app.put('/jobs/:id', async (req, res) => {
+	const { body, params } = req
+
+	await prismaQuery(res, async () => (
+		await prisma.job.update(
+			Number(params?.id),
+			body?.title,
+			body?.url,
+		)
+	))
+})
+
+app.get('/sections/:id', async (req, res) => {
+	await prismaQuery(res, async () => await prisma.section.findUnique(Number(req.params?.id)))
+})
+
+app.post('/jobs/:id/sections', async (req, res) => {
+	const { body, params } = req
+
+	await prismaQuery(res, async () => (
+		await prisma.section.create(
+			Number(params?.id),
+			body?.header,
+			body?.content,
+		)
+	))
+})
+
+app.put('/sections/:id', async (req, res) => {
+	const { body, params } = req
+
+	await prismaQuery(res, async () => (
+		await prisma.section.update(
+			Number(params?.id),
+			body?.header,
+			body?.content,
+		)
+	))
+})
+
+app.put('/sections/:id/move', async (req, res) => {
+	await prismaQuery(res, async () => (
+		await prisma.section.swap(
+			Number(req.params?.id),
+			Number(req.body?.newId),
+		)
+	))
+})
+
+app.delete('/jobs/:jobId/sections/:id', async (req, res) => {
+	await prismaQuery(res, async () => (
+		await prisma.section.delete(
+			Number(req.params?.jobId),
+			Number(req.params?.id),
+		)
+	))
 })
 
 app.all('*', async (req, res) => {

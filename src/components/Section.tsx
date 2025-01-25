@@ -132,10 +132,9 @@ function Section(props) {
 				const savedContent = Content.newContent(newContent)
 
 				if (savedHeader && savedContent) {
-					updateSection('header', savedHeader)
 					updateSection('newHeader', savedHeader)
-					updateSection('content', savedContent)
 					updateSection('newContent', savedContent)
+					props.saveSection(section, savedHeader, savedContent)
 				} else {
 					updateSection('newHeader', header)
 					updateSection('newContent', content)
@@ -231,6 +230,7 @@ function Section(props) {
 							onChange={(e) => updateActionWithState(ACTION.SEARCHING, e.target.value)}
 							type='text'
 						/>
+						<br/>
 						<br/>
 						<Highlighted
 							index={index}

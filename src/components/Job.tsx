@@ -10,9 +10,10 @@ import * as List from '/src/List'
 
 import { VIEWING } from '/src/Action'
 
+import { fetchCreate, fetchUpdate, fetchDelete } from '/src/Prisma'
+
 function Job(props) {
-	const index = props.index
-	const [job, setJob] = useState(props.jobs[index])
+	const job = props.job
 
 	const title = job.title
 	const newTitle = job.newTitle
@@ -22,12 +23,9 @@ function Job(props) {
 
 	const isEditing = job.isEditing
 
-	const sections = job.sections
+	const [sections, setSections] = useState(job.sections)
 
-	function updateJob(update) {
-		props.updateJob(index, update)
-		setJob(props.getJob(index))
-	}
+	const updateJob = props.updateJob
 
 	function finishEditingTitleUrl() {
 		const title = Content.newTitle(job.newTitle)
@@ -67,20 +65,33 @@ function Job(props) {
 	}
 
 	function updateSection(section, update) {
-		updateJob(updateProp('sections', update(section)))
+		setSections(update(section))
 	}
 
 	function finishUpdateSections() {
-		updateJob(updateProp('sections', {...sections}))
+		setSections({...sections})
 	}
 
-	function deleteSection(node) {
-		if (List.remove(sections, node)) {
+	async function saveSection(section, header, content) {
+		section.header = header
+		section.content = content
+
+		const newSection = await fetchUpdate(`/sections/${section.id}`, Content.Section.toPrisma(section))
+
+		if (newSection) {
 			finishUpdateSections()
 		}
 	}
 
-	function splitSection(node) {
+	async function deleteSection(node) {
+		const section = await fetchDelete(`/jobs/${job.id}/sections/${node.item.id}`)
+
+		if (section && List.remove(sections, node)) {
+			finishUpdateSections()
+		}
+	}
+
+	async function splitSection(node) {
 		const section = node.item
 		const content = section.action.state?.content
 
@@ -91,9 +102,22 @@ function Job(props) {
 			section.content = content.up
 			section.newContent = section.content
 
-			List.split(sections, node, section, Content.Section.create(content.header, content.down))
+			const tailSection = await fetchCreate(`/jobs/${job.id}/sections`, {
+				header: content.header,
+				content: content.down,
+			})
 
-			finishUpdateSections()
+			const newSection = await fetchUpdate(`/sections/${section.id}`, Content.Section.toPrisma(section))
+
+			if (tailSection && newSection) {
+				const newNode = List.node(Content.Section.fromPrisma(tailSection))
+
+				newNode.previous = sections.tail
+				sections.tail.next = newNode
+				sections.tail = newNode
+
+				finishUpdateSections()
+			}
 		}
 	}
 
@@ -101,46 +125,83 @@ function Job(props) {
 		return section.action.type === VIEWING
 	}
 
-	function joinSection(node) {
+	async function joinSection(node) {
+		const section = node.item
+		const next = node.next?.item
+
+		const id = section.id
+		const nextId = next?.id
+
 		if (List.join(sections, node, isViewing, Content.Section.glue)) {
+			const newSection = await fetchUpdate(`/sections/${id}`, Content.Section.toPrisma(section))
+
+			const nextSection = await fetchDelete(`/jobs/${job.id}/sections/${nextId}`)
+
+			if (newSection && nextSection) {
+				finishUpdateSections()
+			}
+		}
+	}
+
+	async function moveSections(section, newSection) {
+		const id = section.id
+		const newId = newSection.id
+
+		const sections = await fetchUpdate(`/sections/${id}/move`, {
+			newId: newId,
+		})
+
+		if (sections) {
+			const { isExpanded, action } = section
+
+			Content.Section.hydrate(section, sections[0])
+			Content.Section.hydrate(newSection, sections[1])
+
+			section.isExpanded = newSection.isExpanded
+			section.action = newSection.action
+
+			newSection.isExpanded = isExpanded
+			newSection.action = action
+
 			finishUpdateSections()
 		}
 	}
 
-	function moveSectionFirst(node) {
-		if (List.moveFirst(sections, node)) {
-			finishUpdateSections()
+	async function moveSectionFirst(node) {
+		if (node.previous) {
+			await moveSections(node.item, sections.head.item)
 		}
 	}
 
-	function moveSectionUp(node) {
-		if (List.moveUp(sections, node)) {
-			finishUpdateSections()
+	async function moveSectionUp(node) {
+		if (node.previous) {
+			await moveSections(node.item, node.previous.item)
 		}
 	}
 
-	function moveSectionDown(node) {
-		if (List.moveDown(sections, node)) {
-			finishUpdateSections()
+	async function moveSectionDown(node) {
+		if (node.next) {
+			await moveSections(node.item, node.next.item)
 		}
 	}
 
-	function moveSectionLast(node) {
-		if (List.moveLast(sections, node)) {
-			finishUpdateSections()
+	async function moveSectionLast(node) {
+		if (node.next) {
+			await moveSections(node.item, sections.tail.item)
 		}
 	}
 
 	const sectionsList = List.nodes(sections, (key, node) => (
 		<Section
-			key={node.item.key}
-			index={key}
+			key={node.item.id}
+			index={node.item.id}
 			node={node}
 			highlights={props.highlights}
 			checkedHighlights={props.highlights?.map(() => false)}
 			setHighlights={props.setHighlights}
 			setSectionProp={setSectionProp}
 			updateSection={updateSection}
+			saveSection={saveSection}
 			deleteSection={deleteSection}
 			splitSection={splitSection}
 			joinSection={joinSection}
@@ -174,7 +235,7 @@ function Job(props) {
 					onChangeTitle={(e) => updateJob(updateProp('newTitle', e.target.value))}
 					newUrl={newUrl}
 					onChangeUrl={(e) => updateJob(updateProp('newUrl', e.target.value))}
-					onSubmit={() => updateJob(finishEditingTitleUrl())}
+					onSubmit={() => props.saveJob(finishEditingTitleUrl())}
 				/>
 			) : (
 				<JobHead
