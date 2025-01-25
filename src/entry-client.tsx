@@ -5,7 +5,7 @@ import './index.css'
 
 import { fetchRead } from './Prisma'
 
-const { jobs } = await fetchRead('/jobs')
+const jobs = await fetchRead('/jobs')
 
 createRoot(document.getElementById('root')!).render(
 	<StrictMode>

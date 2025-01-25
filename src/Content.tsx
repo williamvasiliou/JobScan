@@ -1,5 +1,5 @@
 import { VIEWING } from './Action'
-import { create as List, linked, items } from './List'
+import { linked } from './List'
 
 export const trim = (string) => string.trim()
 export const nonEmpty = (string) => string.length > 0
@@ -20,8 +20,8 @@ export const list = (items, item) => {
 }
 
 export const Section = {
-	create: (key, header, content) => ({
-		key: key,
+	create: (id, header, content) => ({
+		id: id,
 		isExpanded: true,
 		action: {
 			type: VIEWING,
@@ -32,12 +32,16 @@ export const Section = {
 		content: content,
 		newContent: content,
 	}),
+	hydrate: (section, { header, content }) => {
+		section.header = header
+		section.newHeader = header
+		section.content = content
+		section.newContent = content
+	},
 	fromPrisma: ({ id, header, content }) => Section.create(id, header, content),
 	toPrisma: ({ header, content }) => ({
-		data: {
-			header: header,
-			content: content,
-		},
+		header: header,
+		content: content,
 	}),
 	newSplitContent: (line, lines) => {
 		const content = {
@@ -70,7 +74,7 @@ export const Section = {
 }
 
 export const fromPrisma = ({ id, title, url, sections }) => ({
-	key: id,
+	id: id,
 	title: title,
 	newTitle: title,
 	url: url,
@@ -79,10 +83,7 @@ export const fromPrisma = ({ id, title, url, sections }) => ({
 	sections: linked(sections.map(Section.fromPrisma)),
 })
 
-export const toPrisma = ({ title, url, sections }) => ({
-	data: {
-		title: title,
-		url: url,
-		sections: items(sections).map(Section.toPrisma),
-	},
+export const toPrisma = ({ title, url }) => ({
+	title: title,
+	url: url,
 })

@@ -73,6 +73,11 @@ button:focus-visible {
 	text-align: center;
 }
 
+ol {
+	list-style-type: none;
+	padding: 0 2.5em;
+}
+
 .highlighted {
 	color: red;
 }

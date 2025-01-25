@@ -5,63 +5,88 @@ import Job from './Job'
 import * as Content from '/src/Content'
 import * as JOB from '/src/Job'
 
-import { fetchCreate } from '/src/Prisma'
+import { fetchCreate, fetchRead, fetchUpdate } from '/src/Prisma'
 
 function Jobs(props) {
 	const {
+		jobs,
 		mode, setMode,
-		jobs, setJobs,
-		index, setIndex,
+		setPreviousStart,
+		start, setStart,
+		currentJob, setCurrentJob,
 		highlights, setHighlights,
 	} = props
 
-	async function addJob(title, url, header, content) {
-		const jobTitle = Content.newTitle(title)
-		const jobUrl = url.trim()
-		const jobHeader = Content.newTitle(header)
-		const jobContent = Content.newContent(content)
+	function setModeWithoutJob(mode) {
+		setMode(mode)
+		setCurrentJob(0)
+	}
 
+	async function addJob(title, url, header, content) {
 		const job = await fetchCreate('/jobs', {
-			title: jobTitle,
-			url: jobUrl,
-			header: jobHeader,
-			content: jobContent,
+			title: Content.newTitle(title),
+			url: url.trim(),
+			header: Content.newTitle(header),
+			content: Content.newContent(content),
 		})
 
 		if (job) {
-			setJobs([
-				...jobs,
-				job.data,
-			])
-
-			setIndex(jobs.length)
 			setMode(JOB.VIEW)
+			setPreviousStart(start - 1)
+			setCurrentJob(Content.fromPrisma(job))
+
 			return true
 		}
 
 		return false
 	}
 
-	function hasJob(index) {
-		return (index >= 0) && (index < jobs.length)
-	}
+	async function viewJob(id) {
+		if (currentJob) {
+			return
+		}
 
-	function viewJob(index) {
-		if (hasJob(index)) {
-			setIndex(index)
+		const job = await fetchRead(`/jobs/${id}`)
+
+		if (job) {
 			setMode(JOB.VIEW)
+			setCurrentJob(Content.fromPrisma(job))
 		}
 	}
 
-	function updateJob(index, update) {
-		if (hasJob(index)) {
-			jobs[index] = update(jobs[index])
-			setJobs(jobs)
+	async function editJob(id) {
+		if (currentJob) {
+			return
+		}
+
+		const job = await fetchRead(`/jobs/${id}`)
+
+		if (job) {
+			setMode(JOB.VIEW)
+			setCurrentJob({
+				...Content.fromPrisma(job),
+				isEditing: true,
+			})
 		}
 	}
 
-	function getJob(index) {
-		return jobs[index]
+	function updateJob(update) {
+		if (currentJob) {
+			setCurrentJob(update(currentJob))
+		}
+	}
+
+	async function saveJob(update) {
+		if (currentJob) {
+			const updated = update(currentJob)
+
+			const job = await fetchUpdate(`/jobs/${currentJob.id}`, Content.toPrisma(updated))
+
+			if (job) {
+				setPreviousStart(start - 1)
+				setCurrentJob(updated)
+			}
+		}
 	}
 
 	const views = [
@@ -77,16 +102,17 @@ function Jobs(props) {
 		() => (
 			<JobList
 				jobs={jobs}
+				start={start}
+				setStart={setStart}
+				editJob={editJob}
 				viewJob={viewJob}
-				updateJob={updateJob}
 			/>
 		),
 		() => (
 			<Job
-				jobs={jobs}
-				index={index}
+				job={currentJob}
 				updateJob={updateJob}
-				getJob={getJob}
+				saveJob={saveJob}
 				highlights={highlights}
 				setHighlights={setHighlights}
 			/>
@@ -98,9 +124,9 @@ function Jobs(props) {
 			{jobs.length > 0 ? (
 				<>
 					{mode === JOB.LIST ? (
-						<button onClick={() => setMode(JOB.ADD)}>New Job</button>
+						<button onClick={() => setModeWithoutJob(JOB.ADD)}>New Job</button>
 					) : (
-						<button onClick={() => setMode(JOB.LIST)}>Back</button>
+						<button onClick={() => setModeWithoutJob(JOB.LIST)}>Back</button>
 					)}
 					<br/>
 					{views[mode]()}
