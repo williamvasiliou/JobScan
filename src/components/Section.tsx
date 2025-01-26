@@ -161,7 +161,7 @@ function Section(props) {
 			last: () => props.moveLast(node),
 		},
 		[ACTION.SEARCHING]: {
-			keyword: () => props.setHighlights(addKeyword(highlights, actionState, actionState)),
+			keyword: async () => props.setHighlights(await addKeyword(highlights, actionState, actionState)),
 		},
 	}
 

@@ -4,7 +4,7 @@ import Jobs from './Jobs'
 import Keywords from './Keywords'
 
 import { ADD, LIST } from '/src/Job'
-import { HIGHLIGHTS } from '/src/Keyword'
+import { fromPrisma } from '/src/Keyword'
 
 import { fetchRead } from '/src/Prisma'
 
@@ -67,7 +67,7 @@ function App(props) {
 		setJobsPreviousStart(jobsStart)
 	}
 
-	const [highlights, setHighlights] = useState(HIGHLIGHTS)
+	const [highlights, setHighlights] = useState(props.highlights.map(fromPrisma))
 
 	return (
 		<>
