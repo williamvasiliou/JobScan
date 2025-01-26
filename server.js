@@ -135,6 +135,37 @@ app.delete('/jobs/:jobId/sections/:id', async (req, res) => {
 	))
 })
 
+app.get('/highlights', async (req, res) => {
+	await prismaQuery(res, prisma.highlight.findMany)
+})
+
+app.post('/highlights', async (req, res) => {
+	const body = req.body
+
+	await prismaQuery(res, async () => (
+		await prisma.highlight.create(
+			body?.label,
+			body?.keywords,
+		)
+	))
+})
+
+app.put('/highlights/:labelId', async (req, res) => {
+	const { body, params } = req
+
+	await prismaQuery(res, async () => (
+		await prisma.highlight.update(
+			Number(params?.labelId),
+			body?.label,
+			body?.keywords,
+		)
+	))
+})
+
+app.delete('/highlights/:labelId', async (req, res) => {
+	await prismaQuery(res, async () => await prisma.highlight.delete(Number(req.params?.labelId)))
+})
+
 app.all('*', async (req, res) => {
 	try {
 		const url = req.originalUrl.replace(base, '')

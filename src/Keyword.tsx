@@ -1,10 +1,6 @@
 import { newTitle, nonEmpty } from './Content'
 
-export const key = {
-	key: 502,
-}
-
-export const byWord = (previous, next) => previous > next
+import { fetchCreate, fetchUpdate, fetchDelete } from './Prisma'
 
 export const byLabel = (previous, next) => previous.label > next.label
 
@@ -29,7 +25,7 @@ export const unique = (keywords) => {
 	return items
 }
 
-export const newKeywords = (keywords) => unique(keywords.trim().replaceAll('\n', ' ').split(',').map(newTitle).filter(nonEmpty).sort(byWord))
+export const newKeywords = (keywords) => unique(keywords.trim().replaceAll('\n', ' ').split(',').map(newTitle).filter(nonEmpty).sort())
 
 export const fix = (keyword) => keyword.replaceAll(' ', '[ ]+')
 
@@ -37,63 +33,105 @@ export const regex = (keyword) => `\\b(?i:${fix(keyword)})\\b`
 
 export const newRegex = (keywords) => RegExp(keywords.map(regex).join('|'))
 
-export const create = (label, keywords) => {
-	const highlightLabel = newTitle(label)
-	const highlightKeywordsList = newKeywords(keywords)
+export const keywordsFromPrisma = ({ keyword }) => keyword
+
+export const fromPrisma = ({ id, label, colorId, keywords }) => {
+	const highlightKeywordsList = keywords.map(keywordsFromPrisma).map(keywordsFromPrisma)
 	const highlightKeywords = highlightKeywordsList.join(', ')
 
-	if (highlightLabel && highlightKeywords) {
-		return {
-			key: ++key.key,
-			isEditing: false,
-			label: highlightLabel,
-			newLabel: highlightLabel,
-			keywords: highlightKeywords,
-			newKeywords: highlightKeywords,
-			regex: newRegex(highlightKeywordsList),
-		}
+	return {
+		id: id,
+		colorId: colorId,
+		isEditing: false,
+		label: label,
+		newLabel: label,
+		keywords: highlightKeywords,
+		newKeywords: highlightKeywords,
+		regex: newRegex(highlightKeywordsList),
 	}
-
-	return false
 }
 
-export const addKeyword = (highlights, label, keywords) => {
-	const highlight = create(label, keywords)
+const create = ([ label, keywords ]) => {
+	const highlightLabel = label.label
+	const highlightKeywordsList = keywords.map(keywordsFromPrisma)
+	const highlightKeywords = highlightKeywordsList.join(', ')
+
+	return {
+		id: label.id,
+		colorId: label.colorId,
+		isEditing: false,
+		label: highlightLabel,
+		newLabel: highlightLabel,
+		keywords: highlightKeywords,
+		newKeywords: highlightKeywords,
+		regex: newRegex(highlightKeywordsList),
+	}
+}
+
+export const addKeyword = async (highlights, label, keywords) => {
+	const highlight = await fetchCreate('/highlights', {
+		label: label,
+		keywords: keywords,
+	})
 
 	if (highlight) {
 		return [
 			...highlights,
-			highlight,
+			create(highlight),
 		].sort(byLabel)
 	}
 
 	return highlights
 }
 
-export const cancelEdit = (highlight) => {
-	highlight.isEditing = false
-	highlight.newLabel = highlight.label
-	highlight.newKeywords = highlight.keywords
-}
+export const saveKeyword = async (highlight, updateHighlights) => {
+	const { id, newLabel } = highlight
 
-export const saveEdit = (highlight) => {
-	const label = newTitle(highlight.newLabel)
-	const keywordsList = newKeywords(highlight.newKeywords)
-	const keywords = keywordsList.join(', ')
+	const newHighlight = await fetchUpdate(`/highlights/${id}`, {
+		label: newLabel,
+		keywords: highlight.newKeywords,
+	})
 
-	if (label && keywords) {
-		highlight.isEditing = false
-		highlight.label = label
-		highlight.newLabel = label
-		highlight.keywords = keywords
-		highlight.newKeywords = keywords
-		highlight.regex = newRegex(keywordsList)
+	if (newHighlight) {
+		const [ label, keywords ] = newHighlight
+
+		const highlightKeywordsList = keywords.map(keywordsFromPrisma)
+		const highlightKeywords = highlightKeywordsList.join(', ')
+
+		updateHighlights(highlight, () => ({
+			...highlight,
+			isEditing: false,
+			label: label.label,
+			newLabel: label.label,
+			keywords: highlightKeywords,
+			newKeywords: highlightKeywords,
+			regex: newRegex(highlightKeywordsList),
+		}))
+
+		return true
 	}
 
 	return false
 }
 
-export const HIGHLIGHTS = [
+export const deleteKeyword = async (highlights, id) => {
+	const highlight = await fetchDelete(`/highlights/${id}`)
+
+	if (highlight) {
+		return highlights.filter((highlight) => highlight.id !== id)
+	}
+
+	return highlights
+}
+
+export const cancelEdit = (highlight) => ({
+	...highlight,
+	isEditing: false,
+	newLabel: highlight.label,
+	newKeywords: highlight.keywords,
+})
+
+export const highlights = () => [
 	create('3GPP','3gpp'),
 	create('5G','5g,5g lte'),
 	create('AI','ai,artificial intelligence'),

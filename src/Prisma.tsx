@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 
 import { newTitle, newContent } from './Content'
+import { newKeywords } from './Keyword'
 
 const prisma = new PrismaClient()
 
@@ -210,6 +211,251 @@ export const section = {
 					id: id,
 				},
 			})
+		}
+
+		return false
+	},
+}
+
+function newColor (color) {
+	return color.trim()
+}
+
+export const color = {
+	findMany: async () => await prisma.color.findMany(),
+	create: async (color) => {
+		if (typeof(color) !== 'string') {
+			return false
+		}
+
+		const css = newColor(color)
+
+		if (css) {
+			return await prisma.color.create({
+				data: {
+					color: css,
+				},
+			})
+		}
+
+		return false
+	},
+	update: async (id, color) => {
+		if (isNaN(id) || typeof(color) !== 'string') {
+			return false
+		}
+
+		const css = newColor(color)
+
+		if (css) {
+			return await prisma.color.update({
+				where: {
+					id: id,
+				},
+				data: {
+					color: css,
+				},
+			})
+		}
+
+		return false
+	},
+	delete: async (id) => {
+		if (isNaN(id)) {
+			return false
+		}
+
+		const count = await prisma.color.count({
+			take: 2,
+		})
+
+		if (count > 1) {
+			return await prisma.color.delete({
+				where: {
+					id: id,
+				},
+			})
+		}
+
+		return false
+	},
+}
+
+const prismaLabel = {
+	create: async (label, colorId) => await prisma.label.create({
+		data: {
+			label: label,
+			colorId: colorId,
+		},
+	}),
+	update: async (id, label) => await prisma.label.update({
+		where: {
+			id: id,
+		},
+		data: {
+			label: label,
+		},
+	}),
+	delete: async (id) => await prisma.label.delete({
+		where: {
+			id: id,
+		},
+	}),
+}
+
+async function awaitMap(list, item) {
+	const items = []
+
+	for (let i = 0; i < list.length; ++i) {
+		items.push(await item(list[i]))
+	}
+
+	return items
+}
+
+async function awaitEach(list, item) {
+	for (let i = 0; i < list.length; ++i) {
+		await item(list[i])
+	}
+}
+
+const keyword = {
+	upsert: async (keywords) => (
+		await awaitMap(keywords, async (keyword) => (
+			await prisma.keyword.upsert({
+				where: {
+					keyword: keyword,
+				},
+				update: {
+				},
+				create: {
+					keyword: keyword,
+				},
+			})
+		))
+	),
+	delete: async (id) => await prisma.keyword.delete({
+		where: {
+			id: id,
+		},
+	}),
+}
+
+const keywordsOnLabels = {
+	createMany: async (labelId, keywords) => (
+		await prisma.keywordsOnLabels.createMany({
+			data: keywords.map((keyword) => ({
+				labelId: labelId,
+				keywordId: keyword.id,
+			})),
+		})
+	),
+	deleteMany: async (labelId, keep) => {
+		const keywords = await prisma.keywordsOnLabels.findMany({
+			where: {
+				labelId: labelId,
+			},
+			select: {
+				keywordId: true,
+			},
+		})
+
+		await prisma.keywordsOnLabels.deleteMany({
+			where: {
+				labelId: labelId,
+			},
+		})
+
+		const keepId = keep.map((keyword) => keyword.id)
+
+		const deletedKeywords = keywords.filter((id) => (
+			keepId.indexOf(id.keywordId) === -1
+		))
+
+		await awaitEach(deletedKeywords, async (id) => {
+			const { keywordId } = id
+
+			if (!await prisma.keywordsOnLabels.count({
+				where: {
+					keywordId: keywordId,
+				},
+				take: 1,
+			})) {
+				await keyword.delete(keywordId)
+			}
+		})
+
+		return keywords
+	},
+}
+
+export const highlight = {
+	findMany: async () => await prisma.label.findMany({
+		include: {
+			keywords: {
+				select: {
+					keyword: true,
+				},
+			},
+		},
+		orderBy: {
+			label: 'asc',
+		},
+	}),
+	create: async (label, keywords) => {
+		if (typeof(label) !== 'string' || typeof(keywords) !== 'string') {
+			return false
+		}
+
+		const highlightLabel = newTitle(label)
+		const highlightKeywords = newKeywords(keywords)
+
+		if (highlightLabel && highlightKeywords.length > 0) {
+			const newLabel = await prismaLabel.create(highlightLabel, 1)
+
+			if (newLabel) {
+				const newKeywords = await keyword.upsert(highlightKeywords)
+
+				if (newKeywords) {
+					await keywordsOnLabels.createMany(newLabel.id, newKeywords)
+
+					return [newLabel, newKeywords]
+				}
+			}
+		}
+
+		return false
+	},
+	update: async (labelId, label, keywords) => {
+		if (isNaN(labelId) || typeof(label) !== 'string' || typeof(keywords) !== 'string') {
+			return false
+		}
+
+		const highlightLabel = newTitle(label)
+		const highlightKeywords = newKeywords(keywords)
+
+		if (highlightLabel && highlightKeywords.length > 0) {
+			const newLabel = await prismaLabel.update(labelId, highlightLabel)
+
+			if (newLabel) {
+				const newKeywords = await keyword.upsert(highlightKeywords)
+
+				await keywordsOnLabels.deleteMany(labelId, newKeywords)
+				await keywordsOnLabels.createMany(labelId, newKeywords)
+
+				return [newLabel, newKeywords]
+			}
+		}
+
+		return false
+	},
+	delete: async (labelId) => {
+		if (isNaN(labelId)) {
+			return false
+		}
+
+		if (await keywordsOnLabels.deleteMany(labelId, [])) {
+			return await prismaLabel.delete(labelId)
 		}
 
 		return false
