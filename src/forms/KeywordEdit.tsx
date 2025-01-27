@@ -6,6 +6,7 @@ function KeywordEdit(props) {
 		<>
 			<td><button onClick={props.onClickCancel}>Cancel</button></td>
 			<td><button onClick={props.onClickSave}>Save</button></td>
+			<td>{props.colorEdit}</td>
 			<td>
 				<label htmlFor={label}>Label:</label>
 				<br/>

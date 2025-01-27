@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import KeywordAdd from '/src/forms/KeywordAdd'
 import SectionEdit from '/src/forms/SectionEdit'
 
 import Highlighted from './Highlighted'
@@ -27,11 +28,21 @@ function Section(props) {
 	const content = section.content
 	const newContent = section.newContent
 
-	const highlights = props.highlights
+	const {
+		colors, setColors,
+		highlights, setHighlights,
+		setSectionProp,
+		saveSection, deleteSection,
+		splitSection, joinSection,
+		isViewing,
+		moveFirst, moveUp,
+		moveDown, moveLast,
+	} = props
+
 	const [checkedHighlights, setCheckedHighlights] = useState(props.checkedHighlights)
 
 	function updateSectionProp(prop) {
-		return (value) => props.updateSection(section, props.setSectionProp(prop, value))
+		return (value) => props.updateSection(section, setSectionProp(prop, value))
 	}
 
 	function updateSection(prop, value) {
@@ -99,7 +110,7 @@ function Section(props) {
 	function canJoin() {
 		const next = node.next
 
-		return next && props.isViewing(next.item)
+		return next && isViewing(next.item)
 	}
 
 	function newJoin() {
@@ -112,6 +123,33 @@ function Section(props) {
 		updateAction(ACTION.VIEWING)
 	}
 
+	function newSearch() {
+		updateActionWithState(ACTION.SEARCHING, {
+			find: {
+				label: '',
+				keywords: '',
+			},
+			color: '#ff0000',
+		})
+	}
+
+	function editSearch(find, prop) {
+		return (value) => {
+			if (find) {
+				actionState.find[prop] = value
+			} else {
+				actionState[prop] = value
+			}
+
+			updateActionProp({
+				type: ACTION.SEARCHING,
+				state: {
+					...actionState,
+				},
+			})
+		}
+	}
+
 	const callbacks = {
 		[ACTION.VIEWING]: {
 			edit: () => updateAction(ACTION.EDITING),
@@ -119,7 +157,7 @@ function Section(props) {
 			split: newSplit,
 			join: newJoin,
 			move: () => updateAction(ACTION.MOVING),
-			search: () => updateActionWithState(ACTION.SEARCHING, ''),
+			search: newSearch,
 		},
 		[ACTION.EDITING]: {
 			cancel: () => {
@@ -134,7 +172,7 @@ function Section(props) {
 				if (savedHeader && savedContent) {
 					updateSection('newHeader', savedHeader)
 					updateSection('newContent', savedContent)
-					props.saveSection(section, savedHeader, savedContent)
+					saveSection(section, savedHeader, savedContent)
 				} else {
 					updateSection('newHeader', header)
 					updateSection('newContent', content)
@@ -144,24 +182,24 @@ function Section(props) {
 			},
 		},
 		[ACTION.DELETING]: {
-			delete: () => props.deleteSection(node),
+			delete: () => deleteSection(node),
 		},
 		[ACTION.SPLITTING]: {
 			up: splitUp,
 			down: splitDown,
-			split: () => props.splitSection(node),
+			split: () => splitSection(node),
 		},
 		[ACTION.JOINING]: {
-			join: () => props.joinSection(node),
+			join: () => joinSection(node),
 		},
 		[ACTION.MOVING]: {
-			first: () => props.moveFirst(node),
-			up: () => props.moveUp(node),
-			down: () => props.moveDown(node),
-			last: () => props.moveLast(node),
+			first: () => moveFirst(node),
+			up: () => moveUp(node),
+			down: () => moveDown(node),
+			last: () => moveLast(node),
 		},
 		[ACTION.SEARCHING]: {
-			keyword: async () => props.setHighlights(await addKeyword(highlights, actionState, actionState)),
+			keyword: async () => await addKeyword(actionState.find.label, actionState.find.keywords, actionState.color.replace('#', ''), colors, setColors, highlights, setHighlights),
 		},
 	}
 
@@ -184,6 +222,7 @@ function Section(props) {
 				return (
 					<Highlighted
 						index={index}
+						colors={colors}
 						highlights={highlights}
 						checkedHighlights={checkedHighlights}
 						setCheckedHighlights={setCheckedHighlights}
@@ -222,20 +261,23 @@ function Section(props) {
 			case ACTION.SEARCHING:
 				return (
 					<>
-						<label htmlFor={`section-${index}-searching`}>Find:</label>
-						<br/>
-						<input
-							id={`section-${index}-searching`}
-							defaultValue={actionState}
-							onChange={(e) => updateActionWithState(ACTION.SEARCHING, e.target.value)}
-							type='text'
+						<KeywordAdd
+							id={index}
+							onSubmit={addKeyword}
+							label={actionState.find.label}
+							setLabel={editSearch(true, 'label')}
+							keywords={actionState.find.keywords}
+							setKeywords={editSearch(true, 'keywords')}
+							color={actionState.color}
+							setColor={editSearch(false, 'color')}
 						/>
-						<br/>
 						<br/>
 						<Highlighted
 							index={index}
+							colors={colors}
 							highlights={highlights}
-							searchHighlight={actionState.trim()}
+							searchColor={actionState.color.replace('#', '')}
+							searchHighlight={actionState.find.keywords.trim()}
 							checkedHighlights={checkedHighlights}
 							setCheckedHighlights={setCheckedHighlights}
 							content={content}

@@ -1,6 +1,6 @@
 import { list } from '/src/Content'
 
-import { newKeywords, newRegex } from '/src/Keyword'
+import { newKeywords, newRegex, style } from '/src/Keyword'
 
 function intervals(regex, content) {
 	const answer = []
@@ -30,10 +30,12 @@ function intervals(regex, content) {
 	return answer
 }
 
-function union(set, intervals) {
+function union(set, intervals, colorId) {
 	intervals.forEach((interval) => {
 		for (let i = interval.start; i < interval.end; ++i) {
-			set[i] = true
+			if (!set[i] || colorId < set[i]) {
+				set[i] = colorId
+			}
 		}
 	})
 }
@@ -42,7 +44,7 @@ function partitions(highlights, searchHighlight, content) {
 	const answer = []
 	const push = (key, content, previous) => answer.push(
 		previous ?
-			<span key={key} className='highlighted lines'>
+			<span key={key} className={`highlighted color-${previous} lines`}>
 				{content}
 			</span>
 		:
@@ -51,22 +53,22 @@ function partitions(highlights, searchHighlight, content) {
 			</span>
 	)
 
-	const set = Array.from(content).map(() => false)
+	const set = Array.from(content).map(() => 0)
 
 	if (set.length > 0) {
 		const checkedHighlights = highlights.filter((highlight) => highlight.checked)
 
 		if (checkedHighlights.length > 0) {
-			checkedHighlights.forEach((highlight) => union(set, highlight.intervals))
+			checkedHighlights.forEach((highlight) => union(set, highlight.intervals, highlight.colorId))
 		} else {
-			highlights.forEach((highlight) => union(set, highlight.intervals))
+			highlights.forEach((highlight) => union(set, highlight.intervals, highlight.colorId))
 		}
 
 		if (searchHighlight) {
 			const keywordsList = newKeywords(searchHighlight)
 
 			if (keywordsList.length > 0) {
-				union(set, intervals(newRegex(keywordsList), content))
+				union(set, intervals(newRegex(keywordsList), content), -1)
 			}
 		}
 
@@ -100,12 +102,15 @@ function Highlighted(props) {
 	const index = props.index
 	const content = props.content || ''
 
+	const searchColor = props.searchColor || 'ff0000'
 	const searchHighlight = props.searchHighlight || ''
 
+	const colors = props.colors
 	const checkedHighlights = props.checkedHighlights
 
 	const highlights = list(props.highlights, (key, highlight) => ({
 		key: key,
+		colorId: highlight.colorId,
 		label: highlight.label,
 		intervals: intervals(highlight.regex, content),
 		checked: checkedHighlights[key],
@@ -126,7 +131,7 @@ function Highlighted(props) {
 				onChange={(e) => checkHighlight(highlight.key, e.target.checked)}
 			/>
 			<label
-				className={highlight.checked ? 'highlighted' : ''}
+				className={highlight.checked ? `highlighted color-${highlight.colorId}` : ''}
 				htmlFor={`section-${index}-${highlight.key}`}
 			>
 				{highlight.label}
@@ -134,8 +139,13 @@ function Highlighted(props) {
 		</span>
 	))
 
+	colors[-1] = searchColor
+
 	return (
 		<>
+			<style>
+				{style(colors)}
+			</style>
 			{partitions(highlights, searchHighlight, content)}
 			{labels.length > 0 ? (
 				<>

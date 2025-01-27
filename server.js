@@ -135,6 +135,10 @@ app.delete('/jobs/:jobId/sections/:id', async (req, res) => {
 	))
 })
 
+app.get('/colors', async (req, res) => {
+	await prismaQuery(res, prisma.prismaColor.findMany)
+})
+
 app.get('/highlights', async (req, res) => {
 	await prismaQuery(res, prisma.highlight.findMany)
 })
@@ -146,6 +150,7 @@ app.post('/highlights', async (req, res) => {
 		await prisma.highlight.create(
 			body?.label,
 			body?.keywords,
+			body?.color,
 		)
 	))
 })
@@ -158,6 +163,19 @@ app.put('/highlights/:labelId', async (req, res) => {
 			Number(params?.labelId),
 			body?.label,
 			body?.keywords,
+		)
+	))
+})
+
+app.put('/highlights/:labelId/colors/:colorId', async (req, res) => {
+	const { body, params } = req
+
+	await prismaQuery(res, async () => (
+		await prisma.highlight.updateColor(
+			Number(params?.labelId),
+			Number(params?.colorId),
+			body?.isUpdatingColor,
+			body?.color,
 		)
 	))
 })

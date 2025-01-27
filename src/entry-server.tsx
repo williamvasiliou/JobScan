@@ -2,16 +2,19 @@ import { StrictMode } from 'react'
 import { renderToString } from 'react-dom/server'
 import App from './components/App'
 
-import { job, highlight } from './Prisma'
+import { colorsFromPrisma, fromPrisma } from './Keyword'
+import { job, prismaColor, highlight } from './Prisma'
 
 export const render = async () => {
 	const jobs = await job.findMany()
-	const highlights = await highlight.findMany()
+	const colors = (await prismaColor.findMany()).reduce(colorsFromPrisma, {})
+	const highlights = (await highlight.findMany()).map(fromPrisma(colors))
 
 	return renderToString(
 		<StrictMode>
 			<App
 				jobs={jobs}
+				colors={colors}
 				highlights={highlights}
 			/>
 		</StrictMode>,
