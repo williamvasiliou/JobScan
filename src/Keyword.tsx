@@ -33,16 +33,27 @@ export const regex = (keyword) => `\\b(?i:${fix(keyword)})\\b`
 
 export const newRegex = (keywords) => RegExp(keywords.map(regex).join('|'))
 
+export const colorsFromPrisma = (colors, { id, color }) => ({
+	...colors,
+	[id]: color,
+})
+
 export const keywordsFromPrisma = ({ keyword }) => keyword
 
-export const fromPrisma = ({ id, label, colorId, keywords }) => {
+export const fromPrisma = (colors) => ({ id, label, colorId, keywords }) => {
 	const highlightKeywordsList = keywords.map(keywordsFromPrisma).map(keywordsFromPrisma)
 	const highlightKeywords = highlightKeywordsList.join(', ')
+
+	const highlightColor = colors[colorId]
 
 	return {
 		id: id,
 		colorId: colorId,
 		isEditing: false,
+		isColoring: false,
+		isUpdatingColor: false,
+		color: highlightColor,
+		newColor: highlightColor,
 		label: label,
 		newLabel: label,
 		keywords: highlightKeywords,
@@ -56,10 +67,16 @@ const create = ([ label, keywords ]) => {
 	const highlightKeywordsList = keywords.map(keywordsFromPrisma)
 	const highlightKeywords = highlightKeywordsList.join(', ')
 
+	const color = label.color.color
+
 	return {
 		id: label.id,
 		colorId: label.colorId,
 		isEditing: false,
+		isColoring: false,
+		isUpdatingColor: false,
+		color: color,
+		newColor: color,
 		label: highlightLabel,
 		newLabel: highlightLabel,
 		keywords: highlightKeywords,
@@ -68,20 +85,48 @@ const create = ([ label, keywords ]) => {
 	}
 }
 
-export const addKeyword = async (highlights, label, keywords) => {
+export const style = (colors) => (
+	Object.entries(colors).map(([ colorId, color ]) => (
+`.highlighted.color-${colorId} {
+	color: #${color};
+}
+
+.color-edit.color-${colorId} {
+	background-color: #${color};
+}`
+	)).join('\n')
+)
+
+export const addColor = (colorId, color, colors, setColors) => {
+	if (!colors[colorId]) {
+		setColors({
+			...colors,
+			[colorId]: color,
+		})
+	}
+}
+
+export const addKeyword = async (label, keywords, color, colors, setColors, highlights, setHighlights) => {
 	const highlight = await fetchCreate('/highlights', {
 		label: label,
 		keywords: keywords,
+		color: color,
 	})
 
 	if (highlight) {
-		return [
+		const newHighlight = create(highlight)
+
+		addColor(newHighlight.colorId, newHighlight.color, colors, setColors)
+
+		setHighlights([
 			...highlights,
-			create(highlight),
-		].sort(byLabel)
+			newHighlight,
+		].sort(byLabel))
+
+		return true
 	}
 
-	return highlights
+	return false
 }
 
 export const saveKeyword = async (highlight, updateHighlights) => {
@@ -114,14 +159,49 @@ export const saveKeyword = async (highlight, updateHighlights) => {
 	return false
 }
 
-export const deleteKeyword = async (highlights, id) => {
+export const saveColor = async (highlight, updateColor, colors, setColors, updateHighlights) => {
+	const { id, colorId, isUpdatingColor, color, newColor } = highlight
+
+	const newHighlight = await fetchUpdate(`/highlights/${id}/colors/${colorId}`, {
+		isUpdatingColor: isUpdatingColor,
+		color: newColor,
+	})
+
+	if (newHighlight) {
+		const highlightColorId = newHighlight.id
+		const highlightColor = newHighlight.color
+
+		if (isUpdatingColor) {
+			updateColor(id, colorId, color, highlightColor)
+		} else {
+			addColor(highlightColorId, highlightColor, colors, setColors)
+
+			updateHighlights(highlight, () => ({
+				...highlight,
+				colorId: highlightColorId,
+				isColoring: false,
+				isUpadingColor: false,
+				color: highlightColor,
+				newColor: highlightColor,
+			}))
+		}
+
+		return true
+	}
+
+	return false
+}
+
+export const deleteKeyword = async (highlights, id, setHighlights) => {
 	const highlight = await fetchDelete(`/highlights/${id}`)
 
 	if (highlight) {
-		return highlights.filter((highlight) => highlight.id !== id)
+		setHighlights(highlights.filter((highlight) => highlight.id !== id))
+
+		return true
 	}
 
-	return highlights
+	return false
 }
 
 export const cancelEdit = (highlight) => ({
@@ -129,6 +209,13 @@ export const cancelEdit = (highlight) => ({
 	isEditing: false,
 	newLabel: highlight.label,
 	newKeywords: highlight.keywords,
+})
+
+export const cancelColor = (colors) => (highlight) => ({
+	...highlight,
+	isColoring: false,
+	isUpdatingColor: false,
+	newColor: colors[highlight.colorId],
 })
 
 export const highlights = () => [

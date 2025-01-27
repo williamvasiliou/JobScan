@@ -218,10 +218,30 @@ export const section = {
 }
 
 function newColor (color) {
-	return color.trim()
+	const css = []
+	const trim = color.trim().toLowerCase()
+	const regex = /[a-f0-9]/
+
+	for (const character of trim) {
+		if (regex.test(character)) {
+			css.push(character)
+
+			if (css.length > 6) {
+				return false
+			}
+		} else {
+			return false
+		}
+	}
+
+	if (css.length === 6) {
+		return css.join('')
+	}
+
+	return false
 }
 
-export const color = {
+export const prismaColor = {
 	findMany: async () => await prisma.color.findMany(),
 	create: async (color) => {
 		if (typeof(color) !== 'string') {
@@ -231,8 +251,13 @@ export const color = {
 		const css = newColor(color)
 
 		if (css) {
-			return await prisma.color.create({
-				data: {
+			return await prisma.color.upsert({
+				where: {
+					color: css,
+				},
+				update: {
+				},
+				create: {
 					color: css,
 				},
 			})
@@ -265,11 +290,12 @@ export const color = {
 			return false
 		}
 
-		const count = await prisma.color.count({
-			take: 2,
-		})
-
-		if (count > 1) {
+		if (!await prisma.label.count({
+			where: {
+				colorId: id,
+			},
+			take: 1,
+		})) {
 			return await prisma.color.delete({
 				where: {
 					id: id,
@@ -296,11 +322,25 @@ const prismaLabel = {
 			label: label,
 		},
 	}),
-	delete: async (id) => await prisma.label.delete({
+	updateColor: async (id, colorId) => await prisma.label.update({
 		where: {
 			id: id,
 		},
+		data: {
+			colorId: colorId,
+		},
 	}),
+	delete: async (id) => {
+		const label = await prisma.label.delete({
+			where: {
+				id: id,
+			},
+		})
+
+		await prismaColor.delete(label.colorId)
+
+		return label
+	},
 }
 
 async function awaitMap(list, item) {
@@ -402,7 +442,7 @@ export const highlight = {
 			label: 'asc',
 		},
 	}),
-	create: async (label, keywords) => {
+	create: async (label, keywords, color) => {
 		if (typeof(label) !== 'string' || typeof(keywords) !== 'string') {
 			return false
 		}
@@ -411,7 +451,8 @@ export const highlight = {
 		const highlightKeywords = newKeywords(keywords)
 
 		if (highlightLabel && highlightKeywords.length > 0) {
-			const newLabel = await prismaLabel.create(highlightLabel, 1)
+			const newColor = await prismaColor.create(color)
+			const newLabel = await prismaLabel.create(highlightLabel, newColor.id)
 
 			if (newLabel) {
 				const newKeywords = await keyword.upsert(highlightKeywords)
@@ -419,6 +460,7 @@ export const highlight = {
 				if (newKeywords) {
 					await keywordsOnLabels.createMany(newLabel.id, newKeywords)
 
+					newLabel.color = newColor
 					return [newLabel, newKeywords]
 				}
 			}
@@ -448,6 +490,52 @@ export const highlight = {
 		}
 
 		return false
+	},
+	updateColor: async (labelId, colorId, isUpdatingColor, color) => {
+		if (typeof(isUpdatingColor) !== 'boolean') {
+			return false
+		}
+
+		if (isUpdatingColor) {
+			const newColor = await prisma.color.findUnique({
+				where: {
+					color: color,
+				},
+			})
+
+			if (newColor) {
+				const id = newColor.id
+
+				if (id === colorId) {
+					return newColor
+				} else {
+					await prisma.label.updateMany({
+						where: {
+							colorId: id,
+						},
+						data: {
+							colorId: colorId,
+						},
+					})
+
+					await prismaColor.delete(id)
+
+					return await prismaColor.update(colorId, color)
+				}
+			} else {
+				return await prismaColor.update(colorId, color)
+			}
+		} else {
+			const newColor = await prismaColor.create(color)
+			const id = newColor.id
+
+			if (id !== colorId) {
+				await prismaLabel.updateColor(labelId, id)
+				await prismaColor.delete(colorId)
+			}
+
+			return newColor
+		}
 	},
 	delete: async (labelId) => {
 		if (isNaN(labelId)) {

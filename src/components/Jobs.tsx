@@ -14,6 +14,7 @@ function Jobs(props) {
 		setPreviousStart,
 		start, setStart,
 		currentJob, setCurrentJob,
+		colors, setColors,
 		highlights, setHighlights,
 	} = props
 
@@ -113,6 +114,8 @@ function Jobs(props) {
 				job={currentJob}
 				updateJob={updateJob}
 				saveJob={saveJob}
+				colors={colors}
+				setColors={setColors}
 				highlights={highlights}
 				setHighlights={setHighlights}
 			/>

@@ -3,8 +3,10 @@ import { useState } from 'react'
 import Jobs from './Jobs'
 import Keywords from './Keywords'
 
+import { addKeyword } from '/src/Keyword'
+import KeywordAdd from '/src/forms/KeywordAdd'
+
 import { ADD, LIST } from '/src/Job'
-import { fromPrisma } from '/src/Keyword'
 
 import { fetchRead } from '/src/Prisma'
 
@@ -67,7 +69,16 @@ function App(props) {
 		setJobsPreviousStart(jobsStart)
 	}
 
-	const [highlights, setHighlights] = useState(props.highlights.map(fromPrisma))
+	const [colors, setColors] = useState(props.colors)
+	const [highlights, setHighlights] = useState(props.highlights)
+
+	const [newLabel, setNewLabel] = useState('')
+	const [newKeywords, setNewKeywords] = useState('')
+	const [newColor, setNewColor] = useState('#ff0000')
+
+	async function addHighlight(label, keywords, color) {
+		await addKeyword(label, keywords, color.replace('#', ''), colors, setColors, highlights, setHighlights)
+	}
 
 	return (
 		<>
@@ -96,14 +107,29 @@ function App(props) {
 					setStart={setJobsStart}
 					currentJob={currentJob}
 					setCurrentJob={setCurrentJob}
+					colors={colors}
+					setColors={setColors}
 					highlights={highlights}
 					setHighlights={setHighlights}
 				/>
 			) : (
 				<Keywords
+					colors={colors}
+					setColors={setColors}
 					highlights={highlights}
 					setHighlights={setHighlights}
-				/>
+				>
+					<KeywordAdd
+						id={0}
+						onSubmit={addHighlight}
+						label={newLabel}
+						setLabel={setNewLabel}
+						keywords={newKeywords}
+						setKeywords={setNewKeywords}
+						color={newColor}
+						setColor={setNewColor}
+					/>
+				</Keywords>
 			)}
 		</>
 	)

@@ -1,30 +1,49 @@
-import { useState } from 'react'
+import ColorAdd from './ColorAdd'
 
 function KeywordAdd(props) {
-	const [label, setLabel] = useState('')
-	const [keywords, setKeywords] = useState('')
+	const {
+		id, onSubmit,
+		label, setLabel,
+		keywords, setKeywords,
+		color, setColor,
+	} = props
 
 	function handleSubmit(event) {
 		event.preventDefault()
 
-		props.onSubmit(label, keywords)
+		onSubmit(label, keywords, color)
+	}
+
+	function setNewLabel(value) {
+		if (label === keywords) {
+			setLabel(value)
+			setKeywords(value)
+		} else {
+			setLabel(value)
+		}
 	}
 
 	return (
 		<form onSubmit={handleSubmit}>
-			<label htmlFor='label'>Label:</label>
+			<label htmlFor={`label-adding-${id}`}>Label:</label>
 			<br/>
-			<input
-				id='label'
-				defaultValue={label}
-				onChange={(e) => setLabel(e.target.value)}
-				type='text'
-			/>
-			<br/>
-			<label htmlFor='keywords'>Keywords:</label>
+			<div className='color-adding'>
+				<ColorAdd
+					id={id}
+					color={color}
+					setColor={setColor}
+				/>
+				<input
+					id={`label-adding-${id}`}
+					defaultValue={label}
+					onChange={(e) => setNewLabel(e.target.value)}
+					type='text'
+				/>
+			</div>
+			<label htmlFor={`keywords-adding-${id}`}>Keywords:</label>
 			<br/>
 			<textarea
-				id='keywords'
+				id={`keywords-adding-${id}`}
 				rows='9'
 				cols='54'
 				defaultValue={keywords}
@@ -32,7 +51,11 @@ function KeywordAdd(props) {
 			>
 			</textarea>
 			<br/>
-			<button type='submit'>Add</button>
+			{!id ? (
+				<button type='submit'>Add</button>
+			) : (
+				[]
+			)}
 		</form>
 	)
 }

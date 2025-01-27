@@ -1,10 +1,37 @@
-import { addKeyword, saveKeyword, deleteKeyword, cancelEdit, byLabel } from '/src/Keyword'
+import { style, saveKeyword, saveColor, deleteKeyword, cancelEdit, cancelColor, byLabel } from '/src/Keyword'
 
-import KeywordAdd from '/src/forms/KeywordAdd'
+import ColorEdit from '/src/forms/ColorEdit'
 import KeywordEdit from '/src/forms/KeywordEdit'
 
 function Keywords(props) {
-	const highlights = props.highlights
+	const {
+		children,
+		colors, setColors,
+		highlights, setHighlights,
+	} = props
+
+	function updateColor(id, colorId, color, newColor) {
+		setColors({
+			...colors,
+			[colorId]: newColor,
+		})
+
+		setHighlights(highlights.map((highlight) => {
+			if (highlight.colorId === colorId || highlight.color === newColor) {
+				highlight.colorId = colorId
+				highlight.color = newColor
+
+				if (!highlight.isColoring || highlight.newColor === color || highlight.id === id) {
+					highlight.isColoring = false
+					highlight.isUpdatingColor = false
+
+					highlight.newColor = newColor
+				}
+			}
+
+			return highlight
+		}))
+	}
 
 	function updateHighlights({ id, label }, update) {
 		let low = 0
@@ -17,7 +44,7 @@ function Keywords(props) {
 				if (highlight.id === id) {
 					highlights[low] = update(highlight)
 
-					props.setHighlights([...highlights].sort(byLabel))
+					setHighlights([...highlights].sort(byLabel))
 				}
 
 				break
@@ -28,7 +55,7 @@ function Keywords(props) {
 				if (highlight.id === id) {
 					highlights[index] = update(highlight)
 
-					props.setHighlights([...highlights].sort(byLabel))
+					setHighlights([...highlights].sort(byLabel))
 
 					break
 				} else if (highlight.label > label) {
@@ -47,16 +74,33 @@ function Keywords(props) {
 		})
 	}
 
-	async function addHighlight(label, keywords) {
-		props.setHighlights(await addKeyword(highlights, label, keywords))
-	}
-
 	async function saveHighlight(highlight) {
 		await saveKeyword(highlight, updateHighlights)
 	}
 
+	async function saveHighlightColor(highlight) {
+		await saveColor(highlight, updateColor, colors, setColors, updateHighlights)
+	}
+
 	async function deleteHighlight({ id }) {
-		props.setHighlights(await deleteKeyword(highlights, id))
+		await deleteKeyword(highlights, id, setHighlights)
+	}
+
+	function colorEdit(highlight) {
+		return (
+			<ColorEdit
+				id={highlight.id}
+				colorId={highlight.colorId}
+				isColoring={highlight.isColoring}
+				newColor={`#${highlight.newColor}`}
+				setNewColor={(value) => updateHighlights(highlight, setHighlightProp('newColor', value.replace('#', '')))}
+				isUpdating={highlight.isUpdatingColor}
+				setUpdating={(value) => updateHighlights(highlight, setHighlightProp('isUpdatingColor', value))}
+				cancel={() => updateHighlights(highlight, cancelColor(props.colors))}
+				save={() => saveHighlightColor(highlight)}
+				edit={() => updateHighlights(highlight, setHighlightProp('isColoring', true))}
+			/>
+		)
 	}
 
 	const keywords = highlights?.map((highlight) => (
@@ -71,11 +115,13 @@ function Keywords(props) {
 					keywords={`highlight-${highlight.key}-keywords`}
 					newKeywords={highlight.newKeywords}
 					onChangeKeywords={(e) => updateHighlights(highlight, setHighlightProp('newKeywords', e.target.value))}
+					colorEdit={colorEdit(highlight)}
 				/>
 			) : (
 				<>
 					<td><button onClick={() => deleteHighlight(highlight)}>Delete</button></td>
 					<td><button onClick={() => updateHighlights(highlight, setHighlightProp('isEditing', true))}>Edit</button></td>
+					<td>{colorEdit(highlight)}</td>
 					<td>{highlight.label}</td>
 					<td>{highlight.keywords}</td>
 				</>
@@ -85,9 +131,10 @@ function Keywords(props) {
 
 	return (
 		<>
-			<KeywordAdd
-				onSubmit={addHighlight}
-			/>
+			<style>
+				{style(colors)}
+			</style>
+			{children}
 			{keywords.length > 0 ? (
 				<>
 					<br/>

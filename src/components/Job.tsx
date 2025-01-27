@@ -13,19 +13,19 @@ import { VIEWING } from '/src/Action'
 import { fetchCreate, fetchUpdate, fetchDelete } from '/src/Prisma'
 
 function Job(props) {
-	const job = props.job
+	const {
+		job, updateJob,
+		colors, setColors,
+		highlights, setHighlights,
+	} = props
 
-	const title = job.title
-	const newTitle = job.newTitle
-
-	const url = job.url
-	const newUrl = job.newUrl
-
-	const isEditing = job.isEditing
+	const {
+		title, newTitle,
+		url, newUrl,
+		isEditing,
+	} = job
 
 	const [sections, setSections] = useState(job.sections)
-
-	const updateJob = props.updateJob
 
 	function finishEditingTitleUrl() {
 		const title = Content.newTitle(job.newTitle)
@@ -196,9 +196,11 @@ function Job(props) {
 			key={node.item.id}
 			index={node.item.id}
 			node={node}
-			highlights={props.highlights}
-			checkedHighlights={props.highlights?.map(() => false)}
-			setHighlights={props.setHighlights}
+			colors={colors}
+			setColors={setColors}
+			checkedHighlights={highlights?.map(() => false)}
+			highlights={highlights}
+			setHighlights={setHighlights}
 			setSectionProp={setSectionProp}
 			updateSection={updateSection}
 			saveSection={saveSection}
