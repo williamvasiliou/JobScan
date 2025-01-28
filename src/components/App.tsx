@@ -8,7 +8,7 @@ import KeywordAdd from '/src/forms/KeywordAdd'
 
 import { ADD, LIST } from '/src/Job'
 
-import { fetchRead } from '/src/Prisma'
+import { fetchRead } from '/src/Fetch'
 
 function App(props) {
 	const [showsJobs, setShowsJobs] = useState(true)
@@ -18,50 +18,57 @@ function App(props) {
 
 	const [jobsMode, setJobsMode] = useState(hasJobs ? LIST : ADD)
 
+	const [jobsSearch, setJobsSearch] = useState('')
+	const [jobsNewSearch, setJobsNewSearch] = useState('')
+
+	const [jobsAfter, setJobsAfter] = useState(true)
 	const [jobsPreviousStart, setJobsPreviousStart] = useState(0)
 	const [jobsStart, setJobsStart] = useState(0)
-	const [jobsMaxStart, setJobsMaxStart] = useState(hasJobs ? jobs[0].id : 0)
 
 	const [currentJob, setCurrentJob] = useState(0)
 
-	if (!hasJobs) {
-		if (jobsStart > 0) {
-			setJobsPreviousStart(0)
-			setJobsStart(0)
-		} else if(!showsJobs) {
-			setShowsJobs(true)
-			setJobsMode(ADD)
-			setCurrentJob(0)
-		}
-	} else if(jobsMaxStart) {
-		if (jobsMaxStart < jobsStart) {
-			fetchRead(`/jobs/${jobsStart}/id`).then((job) => {
-				if (job) {
-					setJobsMaxStart(jobsStart)
-				} else {
-					setJobsPreviousStart(0)
-					setJobsStart(0)
-				}
-			})
-		} else if(jobsMaxStart === jobsStart) {
-			fetchRead(`/jobs/${jobsStart + 1}/id`).then((job) => {
-				if (job) {
-					setJobsMaxStart(jobsStart + 1)
-				} else {
-					setJobsPreviousStart(0)
-					setJobsStart(0)
-				}
-			})
-		}
+	function showFirstJobs() {
+		setJobsPreviousStart(-1)
+		setJobsStart(0)
 	}
 
-	if (!jobsStart && hasJobs && jobsMaxStart < jobs[0].id) {
-		setJobsMaxStart(jobs[0].id)
+	function showWelcome() {
+		setShowsJobs(true)
+		setJobsMode(ADD)
+		setCurrentJob(0)
+	}
+
+	if (!hasJobs) {
+		if (jobsSearch) {
+			if (jobsStart > 0) {
+				showFirstJobs()
+			}
+		} else {
+			if (jobsStart > 0) {
+				showFirstJobs()
+			} else if(!showsJobs && jobsAfter) {
+				showWelcome()
+			}
+		}
 	}
 
 	if (jobsPreviousStart !== jobsStart) {
+		const query = []
+
+		if (jobsSearch) {
+			query.push(`q=${jobsSearch}`)
+		}
+
 		if (jobsStart) {
-			fetchRead(`/jobs?start=${jobsStart}`).then((jobs) => setJobs(jobs))
+			if (jobsAfter) {
+				query.push(`after=${jobsStart}`)
+			} else {
+				query.push(`before=${jobsStart}`)
+			}
+		}
+
+		if (query.length > 0) {
+			fetchRead(`/jobs?${query.join('&')}`).then((jobs) => setJobs(jobs))
 		} else {
 			fetchRead('/jobs').then((jobs) => setJobs(jobs))
 		}
@@ -80,11 +87,13 @@ function App(props) {
 		await addKeyword(label, keywords, color.replace('#', ''), colors, setColors, highlights, setHighlights)
 	}
 
+	const welcome = hasJobs || jobsSearch || jobsStart
+
 	return (
 		<>
 			<header>
 				<h1>JobScan</h1>
-				{hasJobs ? (
+				{welcome ? (
 					showsJobs ? (
 						<button onClick={() => setShowsJobs(false)}>Keywords</button>
 					) : (
@@ -97,10 +106,17 @@ function App(props) {
 			</header>
 			{showsJobs ? (
 				<Jobs
+					welcome={welcome}
 					jobs={jobs}
 					setJobs={setJobs}
 					mode={jobsMode}
 					setMode={setJobsMode}
+					search={jobsSearch}
+					setSearch={setJobsSearch}
+					newSearch={jobsNewSearch}
+					setNewSearch={setJobsNewSearch}
+					isStartAfter={jobsAfter}
+					setStartAfter={setJobsAfter}
 					previousStart={jobsPreviousStart}
 					setPreviousStart={setJobsPreviousStart}
 					start={jobsStart}

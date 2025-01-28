@@ -1,13 +1,23 @@
-import { jobTake } from '/src/Prisma'
+import { newTitle } from '/src/Content'
+import { jobTake } from '/src/Fetch'
 
 function JobList(props) {
-	const { jobs, start, setStart } = props
-	const newStart = jobs[0].id - jobTake
+	const {
+		jobs,
+		search, setSearch,
+		newSearch, setNewSearch,
+		setStartAfter,
+		setPreviousStart,
+		start, setStart,
+	} = props
+
+	const newStart = jobs.length >= jobTake ? jobs[jobTake - 1].id : 0
 
 	const list = jobs.map((job) => (
 		<li key={job.id}>
 			<div onClick={() => props.viewJob(job.id)}>
-				<span>{job.id}</span>
+				<hr/>
+				<span>#{job.id}</span>
 				<br/>
 				<strong>{job.title}</strong>
 			</div>
@@ -23,25 +33,71 @@ function JobList(props) {
 		</li>
 	))
 
-	function next() {
-		if (start) {
-			setStart(Math.max(jobTake, jobs[jobTake - 1].id - 1))
-		} else if(newStart >= jobTake) {
-			setStart(newStart)
+	function handleSubmit(event) {
+		event.preventDefault()
+
+		const searchContent = newTitle(newSearch)
+
+		if (searchContent && search !== searchContent) {
+			setSearch(searchContent)
+
+			setPreviousStart(-1)
+			setStart(0)
 		} else {
-			setStart(jobTake)
+			if (search || start) {
+				setStartAfter(false)
+
+				setPreviousStart(-1)
+				setStart(0)
+			}
+
+			setSearch('')
+			setNewSearch('')
 		}
 	}
 
+	function next() {
+		setStartAfter(true)
+		setStart(newStart)
+	}
+
 	function previous() {
-		setStart(start + jobTake)
+		if (jobs.length > 0) {
+			setStartAfter(false)
+			setStart(jobs[0].id)
+		}
 	}
 
 	return (
 		<>
-			<ol>
-				{list}
-			</ol>
+			<form onSubmit={handleSubmit}>
+				<label htmlFor='search'>Search: </label>
+				<input
+					id='search'
+					defaultValue={newSearch}
+					onChange={(e) => setNewSearch(e.target.value)}
+					type='text'
+				/>
+				<button type='submit'>
+					{search && search === newTitle(newSearch) ? (
+						'Reset'
+					) : (
+						'Search'
+					)}
+				</button>
+			</form>
+			{search ? (
+				<div>Showing results for '<strong>{search}</strong>'...</div>
+			) : (
+				[]
+			)}
+			{list.length > 0 ? (
+				<ol>
+					{list}
+				</ol>
+			) : (
+				[]
+			)}
 			{start ? (
 				<button onClick={previous}>Previous</button>
 			) : (
