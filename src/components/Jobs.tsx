@@ -5,12 +5,15 @@ import Job from './Job'
 import * as Content from '/src/Content'
 import * as JOB from '/src/Job'
 
-import { fetchCreate, fetchRead, fetchUpdate } from '/src/Prisma'
+import { fetchCreate, fetchRead, fetchUpdate } from '/src/Fetch'
 
 function Jobs(props) {
 	const {
-		jobs,
+		welcome, jobs,
 		mode, setMode,
+		search, setSearch,
+		newSearch, setNewSearch,
+		isStartAfter, setStartAfter,
 		setPreviousStart,
 		start, setStart,
 		currentJob, setCurrentJob,
@@ -103,6 +106,13 @@ function Jobs(props) {
 		() => (
 			<JobList
 				jobs={jobs}
+				search={search}
+				setSearch={setSearch}
+				newSearch={newSearch}
+				setNewSearch={setNewSearch}
+				isStartAfter={isStartAfter}
+				setStartAfter={setStartAfter}
+				setPreviousStart={setPreviousStart}
 				start={start}
 				setStart={setStart}
 				editJob={editJob}
@@ -124,7 +134,7 @@ function Jobs(props) {
 
 	return (
 		<>
-			{jobs.length > 0 ? (
+			{!isStartAfter || welcome ? (
 				<>
 					{mode === JOB.LIST ? (
 						<button onClick={() => setModeWithoutJob(JOB.ADD)}>New Job</button>

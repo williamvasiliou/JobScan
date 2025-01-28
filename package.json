@@ -4,10 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node server",
-    "build": "tsc -b && vite build",
+    "postinstall": "prisma generate && prisma db seed",
+    "dev": "node server-dev",
+    "build": "tsc -b && npm run build:client && npm run build:server",
+    "build:client": "vite build --outDir dist/client",
+    "build:server": "vite build --outDir dist/server --ssr src/entry-server.tsx",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "serve": "node server-prod",
+    "preview": "npm run build:client && npm run serve"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",
@@ -28,5 +32,8 @@
     "typescript": "~5.6.2",
     "typescript-eslint": "^8.18.2",
     "vite": "^6.0.5"
+  },
+  "prisma": {
+    "seed": "node prisma/seed"
   }
 }

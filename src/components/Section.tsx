@@ -222,7 +222,6 @@ function Section(props) {
 				return (
 					<Highlighted
 						index={index}
-						colors={colors}
 						highlights={highlights}
 						checkedHighlights={checkedHighlights}
 						setCheckedHighlights={setCheckedHighlights}
@@ -274,7 +273,6 @@ function Section(props) {
 						<br/>
 						<Highlighted
 							index={index}
-							colors={colors}
 							highlights={highlights}
 							searchColor={actionState.color.replace('#', '')}
 							searchHighlight={actionState.find.keywords.trim()}

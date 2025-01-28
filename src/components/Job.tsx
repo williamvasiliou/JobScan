@@ -9,8 +9,9 @@ import * as Content from '/src/Content'
 import * as List from '/src/List'
 
 import { VIEWING } from '/src/Action'
+import { style } from '/src/Keyword'
 
-import { fetchCreate, fetchUpdate, fetchDelete } from '/src/Prisma'
+import { fetchCreate, fetchUpdate, fetchDelete } from '/src/Fetch'
 
 function Job(props) {
 	const {
@@ -256,6 +257,9 @@ function Job(props) {
 			) : (
 				[]
 			)}
+			<style>
+				{style(colors)}
+			</style>
 			{sectionsList}
 		</>
 	)

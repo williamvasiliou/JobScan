@@ -1,6 +1,6 @@
 import { list } from '/src/Content'
 
-import { newKeywords, newRegex, style } from '/src/Keyword'
+import { newKeywords, newRegex } from '/src/Keyword'
 
 function intervals(regex, content) {
 	const answer = []
@@ -40,7 +40,7 @@ function union(set, intervals, colorId) {
 	})
 }
 
-function partitions(highlights, searchHighlight, content) {
+function partitions(highlights, searchHighlight, index, content) {
 	const answer = []
 	const push = (key, content, previous) => answer.push(
 		previous ?
@@ -68,7 +68,7 @@ function partitions(highlights, searchHighlight, content) {
 			const keywordsList = newKeywords(searchHighlight)
 
 			if (keywordsList.length > 0) {
-				union(set, intervals(newRegex(keywordsList), content), -1)
+				union(set, intervals(newRegex(keywordsList), content), -index)
 			}
 		}
 
@@ -105,7 +105,6 @@ function Highlighted(props) {
 	const searchColor = props.searchColor || 'ff0000'
 	const searchHighlight = props.searchHighlight || ''
 
-	const colors = props.colors
 	const checkedHighlights = props.checkedHighlights
 
 	const highlights = list(props.highlights, (key, highlight) => ({
@@ -139,14 +138,12 @@ function Highlighted(props) {
 		</span>
 	))
 
-	colors[-1] = searchColor
-
 	return (
 		<>
 			<style>
-				{style(colors)}
+				{`.highlighted.color-${-index} { color: #${searchColor} }`}
 			</style>
-			{partitions(highlights, searchHighlight, content)}
+			{partitions(highlights, searchHighlight, index, content)}
 			{labels.length > 0 ? (
 				<>
 					<br/>

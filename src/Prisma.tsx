@@ -2,10 +2,9 @@ import { PrismaClient } from '@prisma/client'
 
 import { newTitle, newContent } from './Content'
 import { newKeywords } from './Keyword'
+import { jobTake } from './Fetch'
 
 const prisma = new PrismaClient()
-
-export const jobTake = 5
 
 export const job = {
 	findUnique: async (id) => await prisma.job.findUniqueOrThrow({
@@ -16,25 +15,102 @@ export const job = {
 			sections: true,
 		},
 	}),
-	findUniqueSelect: async (id) => await prisma.job.findUnique({
-		where: {
-			id: id,
-		},
-		select: {
-			id: true,
-		},
-	}),
-	findManyStart: async (id) => await prisma.job.findMany({
-		where: {
-			id: {
-				lte: id,
+	findManySearch: async (search, after, id) => {
+		const sections = {
+			some: {
+				OR: [
+					{
+						header: {
+							contains: search,
+						},
+					},
+					{
+						content: {
+							contains: search,
+						},
+					},
+				],
 			},
-		},
-		orderBy: {
-			id: 'desc',
-		},
-		take: jobTake,
-	}),
+		}
+
+		const where = {
+			where: {
+				OR: [
+					{
+						title: {
+							contains: search,
+						},
+					},
+					{
+						url: {
+							contains: search,
+						},
+					},
+					{
+						sections: {
+							...sections,
+						},
+					},
+				],
+			},
+		}
+
+		if (after) {
+			if (id > 0) {
+				where.where.id = {
+					lt: id,
+				}
+			}
+
+			return await prisma.job.findMany({
+				...where,
+				orderBy: {
+					id: 'desc',
+				},
+				take: jobTake,
+			})
+		} else {
+			if (id > 0) {
+				where.where.id = {
+					gt: id,
+				}
+			}
+
+			return (await prisma.job.findMany({
+				...where,
+				orderBy: {
+					id: 'asc',
+				},
+				take: jobTake,
+			})).reverse()
+		}
+	},
+	findManyStart: async (after, id) => (after ? (
+			await prisma.job.findMany({
+				where: {
+					id: {
+						lt: id,
+					},
+				},
+				orderBy: {
+					id: 'desc',
+				},
+				take: jobTake,
+			})
+		) : (
+			(await prisma.job.findMany({
+				where: {
+					id: {
+						gt: id,
+					},
+				},
+				orderBy: {
+					id: 'asc',
+				},
+				take: jobTake,
+			})).reverse()
+		)
+	),
 	findMany: async () => await prisma.job.findMany({
 		orderBy: {
 			id: 'desc',
@@ -343,25 +419,9 @@ const prismaLabel = {
 	},
 }
 
-async function awaitMap(list, item) {
-	const items = []
-
-	for (let i = 0; i < list.length; ++i) {
-		items.push(await item(list[i]))
-	}
-
-	return items
-}
-
-async function awaitEach(list, item) {
-	for (let i = 0; i < list.length; ++i) {
-		await item(list[i])
-	}
-}
-
 const keyword = {
 	upsert: async (keywords) => (
-		await awaitMap(keywords, async (keyword) => (
+		await Promise.all(keywords.map(async (keyword) => (
 			await prisma.keyword.upsert({
 				where: {
 					keyword: keyword,
@@ -372,7 +432,7 @@ const keyword = {
 					keyword: keyword,
 				},
 			})
-		))
+		)))
 	),
 	delete: async (id) => await prisma.keyword.delete({
 		where: {
@@ -406,13 +466,13 @@ const keywordsOnLabels = {
 			},
 		})
 
-		const keepId = keep.map((keyword) => keyword.id)
+		const keepId = keep.map(({ id }) => id)
 
 		const deletedKeywords = keywords.filter((id) => (
 			keepId.indexOf(id.keywordId) === -1
 		))
 
-		await awaitEach(deletedKeywords, async (id) => {
+		await Promise.all(deletedKeywords.map(async (id) => {
 			const { keywordId } = id
 
 			if (!await prisma.keywordsOnLabels.count({
@@ -423,7 +483,7 @@ const keywordsOnLabels = {
 			})) {
 				await keyword.delete(keywordId)
 			}
-		})
+		}))
 
 		return keywords
 	},
@@ -434,7 +494,11 @@ export const highlight = {
 		include: {
 			keywords: {
 				select: {
-					keyword: true,
+					keyword: {
+						select: {
+							keyword: true,
+						},
+					},
 				},
 			},
 		},
@@ -518,7 +582,9 @@ export const highlight = {
 						},
 					})
 
-					await prismaColor.delete(id)
+					await prisma.color.delete({
+						where: { id },
+					})
 
 					return await prismaColor.update(colorId, color)
 				}
@@ -548,60 +614,4 @@ export const highlight = {
 
 		return false
 	},
-}
-
-export const base = 'http://localhost:5173'
-
-export async function fetchCreate(resource, body) {
-	const response = await fetch(`${base}${resource}`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(body),
-	})
-
-	if (response.ok) {
-		return await response.json()
-	}
-
-	return false
-}
-
-export async function fetchRead(resource) {
-	const response = await fetch(`${base}${resource}`)
-
-	if (response.ok) {
-		return await response.json()
-	}
-
-	return false
-}
-
-export async function fetchUpdate(resource, body) {
-	const response = await fetch(`${base}${resource}`, {
-		method: 'PUT',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(body),
-	})
-
-	if (response.ok) {
-		return await response.json()
-	}
-
-	return false
-}
-
-export async function fetchDelete(resource) {
-	const response = await fetch(`${base}${resource}`, {
-		method: 'DELETE',
-	})
-
-	if (response.ok) {
-		return await response.json()
-	}
-
-	return false
 }
