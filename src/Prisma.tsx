@@ -34,36 +34,32 @@ export const job = {
 		}
 
 		const where = {
-			where: {
-				OR: [
-					{
-						title: {
-							contains: search,
-						},
+			OR: [
+				{
+					title: {
+						contains: search,
 					},
-					{
-						url: {
-							contains: search,
-						},
+				},
+				{
+					url: {
+						contains: search,
 					},
-					{
-						sections: {
-							...sections,
-						},
-					},
-				],
-			},
+				},
+				{
+					sections: sections,
+				},
+			],
 		}
 
 		if (after) {
 			if (id > 0) {
-				where.where.id = {
+				where.id = {
 					lt: id,
 				}
 			}
 
 			return await prisma.job.findMany({
-				...where,
+				where: where,
 				orderBy: {
 					id: 'desc',
 				},
@@ -71,13 +67,13 @@ export const job = {
 			})
 		} else {
 			if (id > 0) {
-				where.where.id = {
+				where.id = {
 					gt: id,
 				}
 			}
 
 			return (await prisma.job.findMany({
-				...where,
+				where: where,
 				orderBy: {
 					id: 'asc',
 				},
@@ -254,6 +250,10 @@ export const section = {
 						header: newSection.header,
 						content: newSection.content,
 					},
+					select: {
+						header: true,
+						content: true,
+					},
 				}),
 				await prisma.section.update({
 					where: {
@@ -263,16 +263,26 @@ export const section = {
 						header: section.header,
 						content: section.content,
 					},
+					select: {
+						header: true,
+						content: true,
+					},
 				})
 			]
 		}
 
 		return false
 	},
-	delete: async (jobId, id) => {
-		if (isNaN(jobId) || isNaN(id)) {
+	delete: async (id) => {
+		if (isNaN(id)) {
 			return
 		}
+
+		const { jobId } = await prisma.section.findUniqueOrThrow({
+			where: {
+				id: id,
+			},
+		})
 
 		const count = await prisma.section.count({
 			where: {
@@ -489,6 +499,68 @@ const keywordsOnLabels = {
 	},
 }
 
+async function uniqueKeywords(labelId, keywords) {
+	const { length } = keywords
+
+	if (length > 0) {
+		const subsets = await prisma.keywordsOnLabels.groupBy({
+			by: 'labelId',
+			where: {
+				keyword: {
+					is: {
+						keyword: {
+							in: keywords,
+						},
+					},
+				},
+			},
+			_count: {
+				keywordId: true,
+			},
+			having: {
+				keywordId: {
+					_count: {
+						equals: length,
+					},
+				},
+			},
+		})
+
+		const where = {
+			labelId: {
+				in: subsets.map(({ labelId }) => labelId),
+			},
+		}
+
+		if (labelId > 0) {
+			where.labelId.not = labelId
+		}
+
+		const sets = await prisma.keywordsOnLabels.groupBy({
+			by: 'labelId',
+			where: where,
+			_count: {
+				keywordId: true,
+			},
+			having: {
+				keywordId: {
+					_count: {
+						equals: length,
+					},
+				},
+			},
+			orderBy: {
+				labelId: 'asc',
+			},
+			take: 1,
+		})
+
+		return !sets.length
+	}
+
+	return false
+}
+
 export const highlight = {
 	findMany: async () => await prisma.label.findMany({
 		include: {
@@ -513,8 +585,9 @@ export const highlight = {
 
 		const highlightLabel = newTitle(label)
 		const highlightKeywords = newKeywords(keywords)
+		const highlightUnique = await uniqueKeywords(0, highlightKeywords)
 
-		if (highlightLabel && highlightKeywords.length > 0) {
+		if (highlightLabel && highlightUnique) {
 			const newColor = await prismaColor.create(color)
 			const newLabel = await prismaLabel.create(highlightLabel, newColor.id)
 
@@ -539,8 +612,9 @@ export const highlight = {
 
 		const highlightLabel = newTitle(label)
 		const highlightKeywords = newKeywords(keywords)
+		const highlightUnique = await uniqueKeywords(labelId, highlightKeywords)
 
-		if (highlightLabel && highlightKeywords.length > 0) {
+		if (highlightLabel && highlightUnique) {
 			const newLabel = await prismaLabel.update(labelId, highlightLabel)
 
 			if (newLabel) {

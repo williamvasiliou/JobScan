@@ -103,7 +103,7 @@ function JobList(props) {
 			) : (
 				[]
 			)}
-			{newStart > 0 ? (
+			{newStart > 1 ? (
 				<button onClick={next}>Next</button>
 			) : (
 				[]
