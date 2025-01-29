@@ -85,7 +85,7 @@ function Job(props) {
 	}
 
 	async function deleteSection(node) {
-		const section = await fetchDelete(`/jobs/${job.id}/sections/${node.item.id}`)
+		const section = await fetchDelete(`/sections/${node.item.id}`)
 
 		if (section && List.remove(sections, node)) {
 			finishUpdateSections()
@@ -136,7 +136,7 @@ function Job(props) {
 		if (List.join(sections, node, isViewing, Content.Section.glue)) {
 			const newSection = await fetchUpdate(`/sections/${id}`, Content.Section.toPrisma(section))
 
-			const nextSection = await fetchDelete(`/jobs/${job.id}/sections/${nextId}`)
+			const nextSection = await fetchDelete(`/sections/${nextId}`)
 
 			if (newSection && nextSection) {
 				finishUpdateSections()

@@ -113,13 +113,8 @@ export function middleware(app, prisma) {
 		))
 	})
 
-	app.delete('/jobs/:jobId/sections/:id', async (req, res) => {
-		await prismaQuery(res, async () => (
-			await prisma.section.delete(
-				Number(req.params?.jobId),
-				Number(req.params?.id),
-			)
-		))
+	app.delete('/sections/:id', async (req, res) => {
+		await prismaQuery(res, async () => await prisma.section.delete(Number(req.params?.id)))
 	})
 
 	app.get('/colors', async (req, res) => {

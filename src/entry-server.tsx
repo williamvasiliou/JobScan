@@ -3,8 +3,12 @@ import { renderToString } from 'react-dom/server'
 import App from './components/App'
 import * as prisma from '/src/Prisma'
 
+export const {
+	job, section, prismaColor, highlight,
+} = prisma
+
 export const render = async () => {
-	const jobs = await prisma.job.findMany()
+	const jobs = await job.findMany()
 
 	return renderToString(
 		<StrictMode>
@@ -16,8 +20,3 @@ export const render = async () => {
 		</StrictMode>,
 	)
 }
-
-export const job = prisma.job
-export const section = prisma.section
-export const prismaColor = prisma.prismaColor
-export const highlight = prisma.highlight
