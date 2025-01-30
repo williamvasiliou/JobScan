@@ -24,6 +24,7 @@ model Label {
   color   Color @relation(fields: [colorId], references: [id])
   colorId Int
 
+  labels   AnalysisLabel[]
   keywords KeywordsOnLabels[]
 }
 
@@ -44,9 +45,14 @@ model KeywordsOnLabels {
 }
 
 model Job {
-  id       Int       @id @default(autoincrement())
+  id       Int    @id @default(autoincrement())
   title    String
-  url      String?
+  url      String @default("")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  published DateTime?
+
   sections Section[]
 }
 
@@ -56,4 +62,40 @@ model Section {
   content String
   job     Job    @relation(fields: [jobId], references: [id])
   jobId   Int
+}
+
+model Analysis {
+  id        Int       @id @default(autoincrement())
+  createdAt DateTime  @default(now())
+  start     DateTime?
+  end       DateTime?
+
+  labels AnalysisLabel[]
+  jobs   LabelsOnJobs[]
+}
+
+model AnalysisLabel {
+  id         Int      @id @default(autoincrement())
+  analysis   Analysis @relation(fields: [analysisId], references: [id])
+  analysisId Int
+  label      Label?   @relation(fields: [labelId], references: [id])
+  labelId    Int?
+  labelLabel String?
+
+  jobs LabelsOnJobs[]
+
+  @@unique([analysisId, labelId])
+  @@unique([analysisId, labelLabel])
+}
+
+model LabelsOnJobs {
+  analysis   Analysis @relation(fields: [analysisId], references: [id])
+  analysisId Int
+
+  analysisLabel   AnalysisLabel @relation(fields: [analysisLabelId], references: [id])
+  analysisLabelId Int
+
+  jobId Int @unique
+
+  @@id([analysisId, analysisLabelId, jobId])
 }
