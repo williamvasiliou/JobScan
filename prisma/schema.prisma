@@ -45,14 +45,15 @@ model KeywordsOnLabels {
 }
 
 model Job {
-  id       Int    @id @default(autoincrement())
-  title    String
-  url      String @default("")
+  id    Int    @id @default(autoincrement())
+  title String
+  url   String
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   published DateTime?
 
+  jobs     AnalysisJob[]
   sections Section[]
 }
 
@@ -65,27 +66,40 @@ model Section {
 }
 
 model Analysis {
-  id        Int       @id @default(autoincrement())
-  createdAt DateTime  @default(now())
-  start     DateTime?
-  end       DateTime?
+  id        Int      @id @default(autoincrement())
+  title     String
+  createdAt DateTime @default(now())
 
-  labels AnalysisLabel[]
-  jobs   LabelsOnJobs[]
+  search String
+  filter Int
+  start  DateTime?
+  end    DateTime?
+
+  jobs LabelsOnJobs[]
 }
 
 model AnalysisLabel {
-  id         Int      @id @default(autoincrement())
-  analysis   Analysis @relation(fields: [analysisId], references: [id])
-  analysisId Int
-  label      Label?   @relation(fields: [labelId], references: [id])
+  id         Int     @id @default(autoincrement())
+  label      Label?  @relation(fields: [labelId], references: [id])
   labelId    Int?
   labelLabel String?
 
   jobs LabelsOnJobs[]
+}
 
-  @@unique([analysisId, labelId])
-  @@unique([analysisId, labelLabel])
+model AnalysisJob {
+  id    Int     @id @default(autoincrement())
+  title String?
+  url   String?
+
+  createdAt DateTime?
+  updatedAt DateTime?
+  published DateTime?
+
+  job   Job? @relation(fields: [jobId], references: [id])
+  jobId Int?
+
+  labels LabelsOnJobs[]
 }
 
 model LabelsOnJobs {
@@ -95,7 +109,8 @@ model LabelsOnJobs {
   analysisLabel   AnalysisLabel @relation(fields: [analysisLabelId], references: [id])
   analysisLabelId Int
 
-  jobId Int @unique
+  analysisJob   AnalysisJob @relation(fields: [analysisJobId], references: [id])
+  analysisJobId Int
 
-  @@id([analysisId, analysisLabelId, jobId])
+  @@id([analysisId, analysisLabelId, analysisJobId])
 }
