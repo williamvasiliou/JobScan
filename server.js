@@ -16,25 +16,32 @@ const prismaQuery = async (res, query) => {
 export function middleware(app, prisma) {
 	app.get('/jobs', async (req, res) => {
 		try {
-			const search = req.query?.q || ''
+			const search = req.query.q?.trim() || ''
+
+			const start = req.query?.start
+			const end = req.query?.end
+			const filter = ((filter) => !isNaN(filter) && filter > 0 ? filter : 0)(Number(req.query?.filter))
+
 			const before = Number(req.query?.before)
 			const after = Number(req.query?.after)
 
+			const hasSearch = search || start || end || filter > 0
+
 			if (isNaN(before) && isNaN(after)) {
-				if (search) {
-					res.status(200).json(await prisma.job.findManySearch(search, true, 0))
+				if (hasSearch) {
+					res.status(200).json(await prisma.job.findManySearch(search, start, end, filter, true, 0))
 				} else {
 					res.status(200).json(await prisma.job.findMany())
 				}
 			} else if (isNaN(before)) {
-				if (search) {
-					res.status(200).json(await prisma.job.findManySearch(search, true, after))
+				if (hasSearch) {
+					res.status(200).json(await prisma.job.findManySearch(search, start, end, filter, true, after))
 				} else {
 					res.status(200).json(await prisma.job.findManyStart(true, after))
 				}
 			} else if (isNaN(after)) {
-				if (search) {
-					res.status(200).json(await prisma.job.findManySearch(search, false, before))
+				if (hasSearch) {
+					res.status(200).json(await prisma.job.findManySearch(search, start, end, filter, false, before))
 				} else {
 					res.status(200).json(await prisma.job.findManyStart(false, before))
 				}
@@ -72,6 +79,18 @@ export function middleware(app, prisma) {
 				Number(params?.id),
 				body?.title,
 				body?.url,
+			)
+		))
+	})
+
+	app.put('/jobs/:id/published', async (req, res) => {
+		const { body, params } = req
+
+		await prismaQuery(res, async () => (
+			await prisma.job.updatePublished(
+				Number(params?.id),
+				body?.date,
+				body?.time,
 			)
 		))
 	})

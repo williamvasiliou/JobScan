@@ -1,21 +1,209 @@
 import { PrismaClient } from '@prisma/client'
 
-import { newTitle, newContent } from './Content'
+import { newTitle, newContent, newDate, newTime } from './Content'
 import { newKeywords } from './Keyword'
+import { TITLE, URL, HEADER, CONTENT, CREATED, UPDATED, PUBLISHED, DATE, MAX, noText, noDate } from './Search'
+
 import { jobTake } from './Fetch'
 
 const prisma = new PrismaClient()
+
+const sectionSelect = {
+	id: true,
+	header: true,
+	content: true,
+}
+
+const jobSelect = {
+	id: true,
+	title: true,
+	url: true,
+	createdAt: true,
+	updatedAt: true,
+	published: true,
+	sections: {
+		select: sectionSelect,
+	},
+}
+
+const jobContains = (item, search) => ({
+	[item]: {
+		contains: search,
+	},
+})
+
+const jobWhereOR = (OR) => OR.length > 1 ? { OR } : OR[0]
+const jobSectionsOR = (OR) => ({
+	sections: {
+		some: jobWhereOR(OR),
+	},
+})
+
+const jobSearchTextWhere = (search, bits) => {
+	if (!search) {
+		return false
+	}
+
+	const hasTitle = !!(bits & TITLE)
+	const hasUrl = !!(bits & URL)
+	const hasHeader = !!(bits & HEADER)
+	const hasContent = !!(bits & CONTENT)
+
+	if (hasTitle || hasUrl || hasHeader || hasContent) {
+		const whereOR = []
+		const sectionsOR = []
+
+		if (hasTitle) {
+			whereOR.push(jobContains('title', search))
+		}
+
+		if (hasUrl) {
+			whereOR.push(jobContains('url', search))
+		}
+
+		if (hasHeader) {
+			sectionsOR.push(jobContains('header', search))
+		}
+
+		if (hasContent) {
+			sectionsOR.push(jobContains('content', search))
+		}
+
+		const whereLength = whereOR.length > 0
+		const sectionsLength = sectionsOR.length > 0
+
+		if (whereLength && sectionsLength) {
+			whereOR.push(jobSectionsOR(sectionsOR))
+
+			return {
+				OR: whereOR,
+			}
+		} else if (whereLength) {
+			return jobWhereOR(whereOR)
+		} else if (sectionsLength) {
+			return jobSectionsOR(sectionsOR)
+		}
+	}
+
+	return false
+}
+
+const newDateTime = (dateTime) => {
+	if (typeof(dateTime) === 'string') {
+		const newDateTime = dateTime.trim().split(' ')
+		const { length } = newDateTime
+
+		if (length === 1) {
+			const [ date ] = newDateTime
+			const jobDate = newDate(date)
+
+			if (jobDate) {
+				return {
+					date: jobDate,
+					time: '00:00',
+				}
+			}
+		} else if (length === 2) {
+			const [ date, time ] = newDateTime
+			const jobDate = newDate(date)
+			const jobTime = newTime(time)
+
+			if (jobDate && jobTime) {
+				return {
+					date: jobDate,
+					time: jobTime,
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+const jobNewDate = (date, time) => new Date(`${date} ${time}`.trim())
+
+const jobDateItem = {
+	[CREATED]: 'createdAt',
+	[UPDATED]: 'updatedAt',
+	[PUBLISHED]: 'published',
+}
+
+const jobSearchDateWhere = (start, end, bits) => {
+	const startDateTime = newDateTime(start)
+	const endDateTime = newDateTime(end)
+
+	if (startDateTime || endDateTime) {
+		const whereAND = []
+		const item = jobDateItem[bits & DATE] || 'createdAt'
+
+		if (startDateTime) {
+			const { date, time } = startDateTime
+
+			whereAND.push({
+				gte: jobNewDate(date, time),
+			})
+		}
+
+		if (endDateTime) {
+			const { date, time } = endDateTime
+
+			whereAND.push({
+				lte: jobNewDate(date, time),
+			})
+		}
+
+		if (whereAND.length > 0) {
+			return {
+				[item]: whereAND.reduce((items, item) => ({
+					...items,
+					...item,
+				})),
+			}
+		}
+	}
+
+	return false
+}
 
 export const job = {
 	findUnique: async (id) => await prisma.job.findUniqueOrThrow({
 		where: {
 			id: id,
 		},
-		include: {
-			sections: true,
-		},
+		select: jobSelect,
 	}),
-	findManySearch: async (search, after, id) => {
+	findManyWhereOrderById: async (where, id) => await prisma.job.findMany({
+		where: where,
+		orderBy: { id },
+		take: jobTake,
+	}),
+	findManyWhere: async (where, after, id) => {
+		if (after) {
+			if (id > 0) {
+				where.id = {
+					lt: id,
+				}
+			}
+
+			return await job.findManyWhereOrderById(where, 'desc')
+		} else {
+			if (id > 0) {
+				where.id = {
+					gt: id,
+				}
+			}
+
+			return (await job.findManyWhereOrderById(where, 'asc')).reverse()
+		}
+	},
+	findManyWhereAdvanced: async (where, after, id) => {
+		if (where) {
+			return await job.findManyWhere(where, after, id)
+		} else {
+			return await job.findManyStart(after, id)
+		}
+	},
+	findManySearchSimple: async (search, after, id) => {
 		const sections = {
 			some: {
 				OR: [
@@ -51,34 +239,48 @@ export const job = {
 			],
 		}
 
-		if (after) {
-			if (id > 0) {
-				where.id = {
-					lt: id,
+		return await job.findManyWhere(where, after, id)
+	},
+	findManySearch: async (search, start, end, filter, after, id) => {
+		const bits = filter & MAX
+
+		if (bits > 0) {
+			const hasNoText = noText(bits)
+			const hasNoDate = noDate(bits)
+
+			if (hasNoText && hasNoDate) {
+				return await job.findManyStart(after, id)
+			} else if (hasNoText) {
+				const where = jobSearchDateWhere(start, end, bits)
+
+				return await job.findManyWhereAdvanced(where, after, id)
+			} else if (hasNoDate) {
+				const where = jobSearchTextWhere(search, bits)
+
+				return await job.findManyWhereAdvanced(where, after, id)
+			} else {
+				const whereDate = jobSearchDateWhere(start, end, bits)
+				const whereText = jobSearchTextWhere(search, bits)
+
+				if (whereDate && whereText) {
+					const where = {
+						AND: [
+							whereDate,
+							whereText,
+						],
+					}
+
+					return await job.findManyWhere(where, after, id)
+				} else if (whereDate) {
+					return await job.findManyWhere(whereDate, after, id)
+				} else if (whereText) {
+					return await job.findManyWhere(whereText, after, id)
+				} else {
+					return await job.findManyStart(after, id)
 				}
 			}
-
-			return await prisma.job.findMany({
-				where: where,
-				orderBy: {
-					id: 'desc',
-				},
-				take: jobTake,
-			})
 		} else {
-			if (id > 0) {
-				where.id = {
-					gt: id,
-				}
-			}
-
-			return (await prisma.job.findMany({
-				where: where,
-				orderBy: {
-					id: 'asc',
-				},
-				take: jobTake,
-			})).reverse()
+			return await job.findManySearchSimple(search, after, id)
 		}
 	},
 	findManyStart: async (after, id) => (after ? (
@@ -135,9 +337,7 @@ export const job = {
 						}],
 					},
 				},
-				include: {
-					sections: true,
-				},
+				select: jobSelect,
 			})
 		}
 
@@ -160,11 +360,67 @@ export const job = {
 					title: jobTitle,
 					url: jobUrl,
 				},
+				select: {
+					title: true,
+					url: true,
+					updatedAt: true,
+				},
 			})
 		}
 
 		return false
 	},
+	updatePublished: async (id, date, time) => {
+		if (isNaN(id) || typeof(date) !== 'string' || typeof(time) !== 'string') {
+			return false
+		}
+
+		const dateTrim = date.trim()
+		const timeTrim = time.trim()
+
+		if (!dateTrim && !timeTrim) {
+			return await prisma.job.update({
+				where: {
+					id: id,
+				},
+				data: {
+					published: null,
+				},
+				select: {
+					updatedAt: true,
+					published: true,
+				},
+			})
+		} else {
+			const jobDate = newDate(dateTrim)
+			const jobTime = newTime(timeTrim)
+
+			if (jobDate && jobTime) {
+				return await prisma.job.update({
+					where: {
+						id: id,
+					},
+					data: {
+						published: jobNewDate(jobDate, jobTime),
+					},
+					select: {
+						updatedAt: true,
+						published: true,
+					},
+				})
+			}
+		}
+
+		return false
+	},
+	updateUpdatedAt: async (id) => await prisma.job.update({
+		where: {
+			id: id,
+		},
+		data: {
+			updatedAt: new Date(),
+		},
+	}),
 }
 
 export const section = {
@@ -172,6 +428,7 @@ export const section = {
 		where: {
 			id: id,
 		},
+		select: sectionSelect,
 	}),
 	create: async (jobId, header, content) => {
 		if (isNaN(jobId) || typeof(header) !== 'string' || typeof(content) !== 'string') {
@@ -182,13 +439,22 @@ export const section = {
 		const sectionContent = newContent(content)
 
 		if (sectionHeader && sectionContent) {
-			return await prisma.section.create({
+			const section = await prisma.section.create({
 				data: {
 					jobId: jobId,
 					header: sectionHeader,
 					content: sectionContent,
 				},
+				select: sectionSelect,
 			})
+
+			if (section) {
+				await job.updateUpdatedAt(jobId)
+			} else {
+				return false
+			}
+
+			return section
 		}
 
 		return false
@@ -198,11 +464,20 @@ export const section = {
 			return false
 		}
 
+		const { jobId } = await prisma.section.findUniqueOrThrow({
+			where: {
+				id: id,
+			},
+			select: {
+				jobId: true,
+			},
+		})
+
 		const sectionHeader = newTitle(header)
 		const sectionContent = newContent(content)
 
 		if (sectionHeader && sectionContent) {
-			return await prisma.section.update({
+			const section = await prisma.section.update({
 				where: {
 					id: id,
 				},
@@ -210,7 +485,16 @@ export const section = {
 					header: sectionHeader,
 					content: sectionContent,
 				},
+				select: sectionSelect,
 			})
+
+			if (section) {
+				await job.updateUpdatedAt(jobId)
+			} else {
+				return false
+			}
+
+			return section
 		}
 
 		return false
@@ -227,6 +511,7 @@ export const section = {
 			select: {
 				header: true,
 				content: true,
+				jobId: true,
 			},
 		})
 
@@ -237,11 +522,12 @@ export const section = {
 			select: {
 				header: true,
 				content: true,
+				jobId: true,
 			},
 		})
 
-		if (section && newSection) {
-			return [
+		if (section && newSection && section.jobId === newSection.jobId) {
+			const sections = [
 				await prisma.section.update({
 					where: {
 						id: id,
@@ -269,6 +555,14 @@ export const section = {
 					},
 				})
 			]
+
+			if (sections.every((section) => section)) {
+				await job.updateUpdatedAt(section.jobId)
+			} else {
+				return false
+			}
+
+			return sections
 		}
 
 		return false
@@ -292,11 +586,20 @@ export const section = {
 		})
 
 		if (count > 1) {
-			return await prisma.section.delete({
+			const section = await prisma.section.delete({
 				where: {
 					id: id,
 				},
+				select: sectionSelect,
 			})
+
+			if (section) {
+				await job.updateUpdatedAt(jobId)
+			} else {
+				return false
+			}
+
+			return section
 		}
 
 		return false
