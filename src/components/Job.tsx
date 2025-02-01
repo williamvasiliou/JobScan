@@ -4,6 +4,7 @@ import JobEdit from '/src/forms/JobEdit'
 
 import JobHead from './JobHead'
 import Section from './Section'
+import JobDate from './JobDate'
 
 import * as Content from '/src/Content'
 import * as List from '/src/List'
@@ -261,6 +262,11 @@ function Job(props) {
 				{style(colors)}
 			</style>
 			{sectionsList}
+			<JobDate
+				job={job}
+				updateJob={updateJob}
+				updateProp={updateProp}
+			/>
 		</>
 	)
 }

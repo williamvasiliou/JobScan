@@ -73,13 +73,47 @@ export const Section = {
 	},
 }
 
-export const fromPrisma = ({ id, title, url, sections }) => ({
+export const newDate = (date) => /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date) ? date : ''
+
+export const newTime = (time) => /^[0-9]{2}:[0-9]{2}(:[0-9]{2})?$/.test(time) ? time : ''
+
+export const dateFromPrisma = (date) => {
+	const [ dateString, timeString ] = date.toISOString().split('T')
+	const newTimeString = timeString.slice(0, 8)
+
+	return {
+		date: dateString,
+		newDate: dateString,
+		time: newTimeString,
+		newTime: newTimeString,
+		value: date,
+	}
+}
+
+export const noDateFromPrisma = () => ({
+	date: '',
+	newDate: '',
+	time: '',
+	newTime: '',
+	value: null,
+})
+
+export const dateTimeFromPrisma = (date) => date ?
+	dateFromPrisma(new Date(date)) :
+	noDateFromPrisma()
+
+export const fromPrisma = ({ id, title, url, createdAt, updatedAt, published, sections }) => ({
 	id: id,
 	title: title,
 	newTitle: title,
 	url: url,
 	newUrl: url,
 	isEditing: false,
+	isDateExpanded: false,
+	isDating: false,
+	createdAt: new Date(createdAt),
+	updatedAt: new Date(updatedAt),
+	published: dateTimeFromPrisma(published),
 	sections: linked(sections.map(Section.fromPrisma)),
 })
 

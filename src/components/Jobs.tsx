@@ -1,11 +1,12 @@
 import JobAdd from '/src/forms/JobAdd'
+import SearchEdit from '/src/forms/SearchEdit'
 import JobList from './JobList'
 import Job from './Job'
 
 import * as Content from '/src/Content'
 import * as JOB from '/src/Job'
 
-import { fetchCreate, fetchRead, fetchUpdate } from '/src/Fetch'
+import { fetchCreate, fetchRead, fetchUpdate, jobTake } from '/src/Fetch'
 
 function Jobs(props) {
 	const {
@@ -87,8 +88,15 @@ function Jobs(props) {
 			const job = await fetchUpdate(`/jobs/${currentJob.id}`, Content.toPrisma(updated))
 
 			if (job) {
+				const { title, url, updatedAt } = job
+
 				setPreviousStart(start - 1)
-				setCurrentJob(updated)
+				setCurrentJob({
+					...updated,
+					title: title,
+					url: url,
+					updatedAt: new Date(updatedAt),
+				})
 			}
 		}
 	}
@@ -105,18 +113,42 @@ function Jobs(props) {
 		),
 		() => (
 			<JobList
-				jobs={jobs}
-				search={search}
-				setSearch={setSearch}
-				newSearch={newSearch}
-				setNewSearch={setNewSearch}
-				isStartAfter={isStartAfter}
+				items={jobs}
+				item={(job) => (
+					<li key={job.id}>
+						<div onClick={() => viewJob(job.id)}>
+							<hr/>
+							<span>#{job.id}</span>
+							<br/>
+							<strong>{job.title}</strong>
+						</div>
+						{job.url ?
+							<a href={job.url} target='_blank'>{job.url}</a>
+						:
+							<button onClick={() => editJob(job.id)}>
+								<em>Click to add URL</em>
+							</button>
+						}
+						<br/>
+						<br/>
+					</li>
+				)}
+				itemTake={jobTake}
+				search={
+					<SearchEdit
+						search={search}
+						setSearch={setSearch}
+						newSearch={newSearch}
+						setNewSearch={setNewSearch}
+						setStartAfter={setStartAfter}
+						setPreviousStart={setPreviousStart}
+						start={start}
+						setStart={setStart}
+					/>
+				}
 				setStartAfter={setStartAfter}
-				setPreviousStart={setPreviousStart}
 				start={start}
 				setStart={setStart}
-				editJob={editJob}
-				viewJob={viewJob}
 			/>
 		),
 		() => (

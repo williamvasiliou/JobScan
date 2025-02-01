@@ -72,8 +72,8 @@ model Analysis {
 
   search String
   filter Int
-  start  DateTime?
-  end    DateTime?
+  start  DateTime
+  end    DateTime
 
   jobs LabelsOnJobs[]
 }

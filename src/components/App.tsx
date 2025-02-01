@@ -7,6 +7,7 @@ import { addKeyword } from '/src/Keyword'
 import KeywordAdd from '/src/forms/KeywordAdd'
 
 import { ADD, LIST } from '/src/Job'
+import { reset, query as searchQuery } from '/src/Search'
 
 import { fetchRead } from '/src/Fetch'
 
@@ -18,8 +19,8 @@ function App(props) {
 
 	const [jobsMode, setJobsMode] = useState(hasJobs ? LIST : ADD)
 
-	const [jobsSearch, setJobsSearch] = useState('')
-	const [jobsNewSearch, setJobsNewSearch] = useState('')
+	const [jobsSearch, setJobsSearch] = useState(reset)
+	const [jobsNewSearch, setJobsNewSearch] = useState(reset)
 
 	const [jobsAfter, setJobsAfter] = useState(true)
 	const [jobsPreviousStart, setJobsPreviousStart] = useState(0)
@@ -53,11 +54,7 @@ function App(props) {
 	}
 
 	if (jobsPreviousStart !== jobsStart) {
-		const query = []
-
-		if (jobsSearch) {
-			query.push(`q=${jobsSearch}`)
-		}
+		const query = searchQuery(jobsSearch)
 
 		if (jobsStart) {
 			if (jobsAfter) {
