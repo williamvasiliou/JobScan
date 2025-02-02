@@ -35,6 +35,14 @@ export const checkboxes = Object.entries({
 	},
 })
 
+export const dates = {
+	[CREATED]: 'Created',
+	[UPDATED]: 'Updated',
+	[PUBLISHED]: 'Published',
+}
+
+export const dateSelect = Object.entries(dates)
+
 export const reset = {
 	isAdvanced: false,
 	checked: 0,
@@ -139,19 +147,15 @@ export const empty = ({ isAdvanced, bits, search, start, end }) => {
 	return !search
 }
 
+export const queryDateItem = (end, { date, time }) => (date && time ?
+	`${end}=${date} ${time}` :
+	`${end}=${date}`
+)
+
 export const queryDate = (query, start, end) => {
 	if (!emptyDate(start, end)) {
-		if (start.date && start.time) {
-			query.push(`start=${start.date} ${start.time}`)
-		} else {
-			query.push(`start=${start.date}`)
-		}
-
-		if (end.date && end.time) {
-			query.push(`end=${end.date} ${end.time}`)
-		} else {
-			query.push(`end=${end.date}`)
-		}
+		query.push(queryDateItem('start', start))
+		query.push(queryDateItem('end', end))
 	}
 }
 

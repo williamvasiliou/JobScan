@@ -1,4 +1,4 @@
-import { CREATED, UPDATED, PUBLISHED, setChecked, setDate } from '/src/Search'
+import { dateSelect, setChecked, setDate } from '/src/Search'
 
 function SearchDate(props) {
 	const { newSearch, setNewSearch } = props
@@ -31,9 +31,9 @@ function SearchDate(props) {
 							date: e.target.value,
 						})}
 					>
-						<option value={CREATED}>Created</option>
-						<option value={UPDATED}>Updated</option>
-						<option value={PUBLISHED}>Published</option>
+						{dateSelect.map(([ key, value ]) => (
+							<option key={key} value={key}>{value}</option>
+						))}
 					</select>
 					<br/>
 					<label htmlFor={`${props.id}-start-date`}>From: </label>

@@ -6,6 +6,8 @@ import Keywords from './Keywords'
 import { addKeyword } from '/src/Keyword'
 import KeywordAdd from '/src/forms/KeywordAdd'
 
+import { addAnalysis } from '/src/Analysis'
+
 import { ADD, LIST } from '/src/Job'
 import { reset, query as searchQuery } from '/src/Search'
 
@@ -29,6 +31,7 @@ function App(props) {
 	const [currentJob, setCurrentJob] = useState(0)
 
 	function showFirstJobs() {
+		setJobsAfter(false)
 		setJobsPreviousStart(-1)
 		setJobsStart(0)
 	}
@@ -47,7 +50,7 @@ function App(props) {
 		} else {
 			if (jobsStart > 0) {
 				showFirstJobs()
-			} else if(!showsJobs && jobsAfter) {
+			} else if(!showsJobs) {
 				showWelcome()
 			}
 		}
@@ -82,6 +85,12 @@ function App(props) {
 
 	async function addHighlight(label, keywords, color) {
 		await addKeyword(label, keywords, color.replace('#', ''), colors, setColors, highlights, setHighlights)
+	}
+
+	const [analysis, setAnalysis] = useState([])
+
+	async function newAnalysis(search) {
+		await addAnalysis(search, analysis, setAnalysis)
 	}
 
 	const welcome = hasJobs || jobsSearch || jobsStart
@@ -124,6 +133,7 @@ function App(props) {
 					setColors={setColors}
 					highlights={highlights}
 					setHighlights={setHighlights}
+					addAnalysis={newAnalysis}
 				/>
 			) : (
 				<Keywords
