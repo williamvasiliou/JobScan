@@ -18,12 +18,12 @@ export function middleware(app, prisma) {
 		try {
 			const search = req.query.q?.trim() || ''
 
-			const start = req.query?.start
-			const end = req.query?.end
-			const filter = ((filter) => !isNaN(filter) && filter > 0 ? filter : 0)(Number(req.query?.filter))
+			const start = req.query.start
+			const end = req.query.end
+			const filter = ((filter) => !isNaN(filter) && filter > 0 ? filter : 0)(Number(req.query.filter))
 
-			const before = Number(req.query?.before)
-			const after = Number(req.query?.after)
+			const before = Number(req.query.before)
+			const after = Number(req.query.after)
 
 			const hasSearch = search || start || end || filter > 0
 
@@ -55,18 +55,18 @@ export function middleware(app, prisma) {
 	})
 
 	app.get('/jobs/:id', async (req, res) => {
-		await prismaQuery(res, async () => await prisma.job.findUnique(Number(req.params?.id)))
+		await prismaQuery(res, async () => await prisma.job.findUnique(Number(req.params.id)))
 	})
 
 	app.post('/jobs', async (req, res) => {
-		const body = req.body
+		const { title, url, header, content } = req.body
 
 		await prismaQuery(res, async () => (
 			await prisma.job.create(
-				body?.title,
-				body?.url,
-				body?.header,
-				body?.content,
+				title,
+				url,
+				header,
+				content,
 			)
 		))
 	})
@@ -76,9 +76,9 @@ export function middleware(app, prisma) {
 
 		await prismaQuery(res, async () => (
 			await prisma.job.update(
-				Number(params?.id),
-				body?.title,
-				body?.url,
+				Number(params.id),
+				body.title,
+				body.url,
 			)
 		))
 	})
@@ -88,15 +88,15 @@ export function middleware(app, prisma) {
 
 		await prismaQuery(res, async () => (
 			await prisma.job.updatePublished(
-				Number(params?.id),
-				body?.date,
-				body?.time,
+				Number(params.id),
+				body.date,
+				body.time,
 			)
 		))
 	})
 
 	app.get('/sections/:id', async (req, res) => {
-		await prismaQuery(res, async () => await prisma.section.findUnique(Number(req.params?.id)))
+		await prismaQuery(res, async () => await prisma.section.findUnique(Number(req.params.id)))
 	})
 
 	app.post('/jobs/:id/sections', async (req, res) => {
@@ -104,9 +104,9 @@ export function middleware(app, prisma) {
 
 		await prismaQuery(res, async () => (
 			await prisma.section.create(
-				Number(params?.id),
-				body?.header,
-				body?.content,
+				Number(params.id),
+				body.header,
+				body.content,
 			)
 		))
 	})
@@ -116,9 +116,9 @@ export function middleware(app, prisma) {
 
 		await prismaQuery(res, async () => (
 			await prisma.section.update(
-				Number(params?.id),
-				body?.header,
-				body?.content,
+				Number(params.id),
+				body.header,
+				body.content,
 			)
 		))
 	})
@@ -126,14 +126,14 @@ export function middleware(app, prisma) {
 	app.put('/sections/:id/move', async (req, res) => {
 		await prismaQuery(res, async () => (
 			await prisma.section.swap(
-				Number(req.params?.id),
-				Number(req.body?.newId),
+				Number(req.params.id),
+				Number(req.body.newId),
 			)
 		))
 	})
 
 	app.delete('/sections/:id', async (req, res) => {
-		await prismaQuery(res, async () => await prisma.section.delete(Number(req.params?.id)))
+		await prismaQuery(res, async () => await prisma.section.delete(Number(req.params.id)))
 	})
 
 	app.get('/colors', async (req, res) => {
@@ -145,13 +145,13 @@ export function middleware(app, prisma) {
 	})
 
 	app.post('/highlights', async (req, res) => {
-		const body = req.body
+		const { label, keywords, color } = req.body
 
 		await prismaQuery(res, async () => (
 			await prisma.highlight.create(
-				body?.label,
-				body?.keywords,
-				body?.color,
+				label,
+				keywords,
+				color,
 			)
 		))
 	})
@@ -161,9 +161,9 @@ export function middleware(app, prisma) {
 
 		await prismaQuery(res, async () => (
 			await prisma.highlight.update(
-				Number(params?.labelId),
-				body?.label,
-				body?.keywords,
+				Number(params.labelId),
+				body.label,
+				body.keywords,
 			)
 		))
 	})
@@ -173,15 +173,36 @@ export function middleware(app, prisma) {
 
 		await prismaQuery(res, async () => (
 			await prisma.highlight.updateColor(
-				Number(params?.labelId),
-				Number(params?.colorId),
-				body?.isUpdatingColor,
-				body?.color,
+				Number(params.labelId),
+				Number(params.colorId),
+				body.isUpdatingColor,
+				body.color,
 			)
 		))
 	})
 
 	app.delete('/highlights/:labelId', async (req, res) => {
-		await prismaQuery(res, async () => await prisma.highlight.delete(Number(req.params?.labelId)))
+		await prismaQuery(res, async () => await prisma.highlight.delete(Number(req.params.labelId)))
+	})
+
+	app.get('/analysis', async (req, res) => {
+		await prismaQuery(res, prisma.analysis.findMany)
+	})
+
+	app.get('/analysis/:id', async (req, res) => {
+		await prismaQuery(res, async () => await prisma.analysis.findUnique(Number(req.params.id)))
+	})
+
+	app.post('/analysis', async (req, res) => {
+		const { q, start, end, filter } = req.body
+
+		await prismaQuery(res, async () => (
+			await prisma.analysis.create(
+				q || '',
+				start || '',
+				end || '',
+				Number(filter),
+			)
+		))
 	})
 }

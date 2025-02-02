@@ -20,6 +20,7 @@ function Jobs(props) {
 		currentJob, setCurrentJob,
 		colors, setColors,
 		highlights, setHighlights,
+		addAnalysis,
 	} = props
 
 	function setModeWithoutJob(mode) {
@@ -136,6 +137,7 @@ function Jobs(props) {
 				itemTake={jobTake}
 				search={
 					<SearchEdit
+						id='jobs'
 						search={search}
 						setSearch={setSearch}
 						newSearch={newSearch}
@@ -144,6 +146,7 @@ function Jobs(props) {
 						setPreviousStart={setPreviousStart}
 						start={start}
 						setStart={setStart}
+						addAnalysis={addAnalysis}
 					/>
 				}
 				setStartAfter={setStartAfter}

@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client'
 
 import { newTitle, newContent, newDate, newTime } from './Content'
-import { newKeywords } from './Keyword'
-import { TITLE, URL, HEADER, CONTENT, CREATED, UPDATED, PUBLISHED, DATE, MAX, noText, noDate } from './Search'
+import { newKeywords, newRegex } from './Keyword'
+import { TITLE, URL, HEADER, CONTENT, TEXT, CREATED, UPDATED, PUBLISHED, DATE, MAX, noText, noDate } from './Search'
 
 import { jobTake } from './Fetch'
 
@@ -31,6 +31,31 @@ const jobContains = (item, search) => ({
 		contains: search,
 	},
 })
+
+const jobSearchSimpleWhere = (search) => (search ? {
+	OR: [
+		{
+			...jobContains('title', search),
+		},
+		{
+			...jobContains('url', search),
+		},
+		{
+			sections: {
+				some: {
+					OR: [
+						{
+							...jobContains('header', search),
+						},
+						{
+							...jobContains('content', search),
+						},
+					],
+				},
+			},
+		},
+	],
+} : false)
 
 const jobWhereOR = (OR) => OR.length > 1 ? { OR } : OR[0]
 const jobSectionsOR = (OR) => ({
@@ -167,9 +192,7 @@ const jobSearchDateWhere = (start, end, bits) => {
 
 export const job = {
 	findUnique: async (id) => await prisma.job.findUniqueOrThrow({
-		where: {
-			id: id,
-		},
+		where: { id },
 		select: jobSelect,
 	}),
 	findManyWhereOrderById: async (where, id) => await prisma.job.findMany({
@@ -196,7 +219,7 @@ export const job = {
 			return (await job.findManyWhereOrderById(where, 'asc')).reverse()
 		}
 	},
-	findManyWhereAdvanced: async (where, after, id) => {
+	findManyWhereOrStart: async (where, after, id) => {
 		if (where) {
 			return await job.findManyWhere(where, after, id)
 		} else {
@@ -204,42 +227,7 @@ export const job = {
 		}
 	},
 	findManySearchSimple: async (search, after, id) => {
-		const sections = {
-			some: {
-				OR: [
-					{
-						header: {
-							contains: search,
-						},
-					},
-					{
-						content: {
-							contains: search,
-						},
-					},
-				],
-			},
-		}
-
-		const where = {
-			OR: [
-				{
-					title: {
-						contains: search,
-					},
-				},
-				{
-					url: {
-						contains: search,
-					},
-				},
-				{
-					sections: sections,
-				},
-			],
-		}
-
-		return await job.findManyWhere(where, after, id)
+		return await job.findManyWhereOrStart(jobSearchSimpleWhere(search), after, id)
 	},
 	findManySearch: async (search, start, end, filter, after, id) => {
 		const bits = filter & MAX
@@ -253,21 +241,19 @@ export const job = {
 			} else if (hasNoText) {
 				const where = jobSearchDateWhere(start, end, bits)
 
-				return await job.findManyWhereAdvanced(where, after, id)
+				return await job.findManyWhereOrStart(where, after, id)
 			} else if (hasNoDate) {
 				const where = jobSearchTextWhere(search, bits)
 
-				return await job.findManyWhereAdvanced(where, after, id)
+				return await job.findManyWhereOrStart(where, after, id)
 			} else {
 				const whereDate = jobSearchDateWhere(start, end, bits)
 				const whereText = jobSearchTextWhere(search, bits)
 
 				if (whereDate && whereText) {
 					const where = {
-						AND: [
-							whereDate,
-							whereText,
-						],
+						...whereDate,
+						...whereText,
 					}
 
 					return await job.findManyWhere(where, after, id)
@@ -283,32 +269,33 @@ export const job = {
 			return await job.findManySearchSimple(search, after, id)
 		}
 	},
-	findManyStart: async (after, id) => (after ? (
-			await prisma.job.findMany({
-				where: {
-					id: {
-						lt: id,
-					},
+	findManyStart: async (after, id) => (id > 0 ? (after ? (
+		await prisma.job.findMany({
+			where: {
+				id: {
+					lt: id,
 				},
-				orderBy: {
-					id: 'desc',
+			},
+			orderBy: {
+				id: 'desc',
+			},
+			take: jobTake,
+		})
+	) : (
+		(await prisma.job.findMany({
+			where: {
+				id: {
+					gt: id,
 				},
-				take: jobTake,
-			})
-		) : (
-			(await prisma.job.findMany({
-				where: {
-					id: {
-						gt: id,
-					},
-				},
-				orderBy: {
-					id: 'asc',
-				},
-				take: jobTake,
-			})).reverse()
-		)
-	),
+			},
+			orderBy: {
+				id: 'asc',
+			},
+			take: jobTake,
+		})).reverse()
+	)) : (
+		await job.findMany()
+	)),
 	findMany: async () => await prisma.job.findMany({
 		orderBy: {
 			id: 'desc',
@@ -353,9 +340,7 @@ export const job = {
 
 		if (jobTitle) {
 			return await prisma.job.update({
-				where: {
-					id: id,
-				},
+				where: { id },
 				data: {
 					title: jobTitle,
 					url: jobUrl,
@@ -380,9 +365,7 @@ export const job = {
 
 		if (!dateTrim && !timeTrim) {
 			return await prisma.job.update({
-				where: {
-					id: id,
-				},
+				where: { id },
 				data: {
 					published: null,
 				},
@@ -397,9 +380,7 @@ export const job = {
 
 			if (jobDate && jobTime) {
 				return await prisma.job.update({
-					where: {
-						id: id,
-					},
+					where: { id },
 					data: {
 						published: jobNewDate(jobDate, jobTime),
 					},
@@ -414,9 +395,7 @@ export const job = {
 		return false
 	},
 	updateUpdatedAt: async (id) => await prisma.job.update({
-		where: {
-			id: id,
-		},
+		where: { id },
 		data: {
 			updatedAt: new Date(),
 		},
@@ -425,9 +404,7 @@ export const job = {
 
 export const section = {
 	findUnique: async(id) => await prisma.section.findUniqueOrThrow({
-		where: {
-			id: id,
-		},
+		where: { id },
 		select: sectionSelect,
 	}),
 	create: async (jobId, header, content) => {
@@ -441,7 +418,7 @@ export const section = {
 		if (sectionHeader && sectionContent) {
 			const section = await prisma.section.create({
 				data: {
-					jobId: jobId,
+					jobId,
 					header: sectionHeader,
 					content: sectionContent,
 				},
@@ -465,9 +442,7 @@ export const section = {
 		}
 
 		const { jobId } = await prisma.section.findUniqueOrThrow({
-			where: {
-				id: id,
-			},
+			where: { id },
 			select: {
 				jobId: true,
 			},
@@ -478,9 +453,7 @@ export const section = {
 
 		if (sectionHeader && sectionContent) {
 			const section = await prisma.section.update({
-				where: {
-					id: id,
-				},
+				where: { id },
 				data: {
 					header: sectionHeader,
 					content: sectionContent,
@@ -505,9 +478,7 @@ export const section = {
 		}
 
 		const section = await prisma.section.findUniqueOrThrow({
-			where: {
-				id: id,
-			},
+			where: { id },
 			select: {
 				header: true,
 				content: true,
@@ -529,9 +500,7 @@ export const section = {
 		if (section && newSection && section.jobId === newSection.jobId) {
 			const sections = [
 				await prisma.section.update({
-					where: {
-						id: id,
-					},
+					where: { id },
 					data: {
 						header: newSection.header,
 						content: newSection.content,
@@ -573,23 +542,17 @@ export const section = {
 		}
 
 		const { jobId } = await prisma.section.findUniqueOrThrow({
-			where: {
-				id: id,
-			},
+			where: { id },
 		})
 
 		const count = await prisma.section.count({
-			where: {
-				jobId: jobId,
-			},
+			where: { jobId },
 			take: 2,
 		})
 
 		if (count > 1) {
 			const section = await prisma.section.delete({
-				where: {
-					id: id,
-				},
+				where: { id },
 				select: sectionSelect,
 			})
 
@@ -663,9 +626,7 @@ export const prismaColor = {
 
 		if (css) {
 			return await prisma.color.update({
-				where: {
-					id: id,
-				},
+				where: { id },
 				data: {
 					color: css,
 				},
@@ -686,9 +647,7 @@ export const prismaColor = {
 			take: 1,
 		})) {
 			return await prisma.color.delete({
-				where: {
-					id: id,
-				},
+				where: { id },
 			})
 		}
 
@@ -699,31 +658,21 @@ export const prismaColor = {
 const prismaLabel = {
 	create: async (label, colorId) => await prisma.label.create({
 		data: {
-			label: label,
-			colorId: colorId,
+			label,
+			colorId,
 		},
 	}),
 	update: async (id, label) => await prisma.label.update({
-		where: {
-			id: id,
-		},
-		data: {
-			label: label,
-		},
+		where: { id },
+		data: { label },
 	}),
 	updateColor: async (id, colorId) => await prisma.label.update({
-		where: {
-			id: id,
-		},
-		data: {
-			colorId: colorId,
-		},
+		where: { id },
+		data: { colorId },
 	}),
 	delete: async (id) => {
 		const label = await prisma.label.delete({
-			where: {
-				id: id,
-			},
+			where: { id },
 		})
 
 		await prismaColor.delete(label.colorId)
@@ -736,21 +685,15 @@ const keyword = {
 	upsert: async (keywords) => (
 		await Promise.all(keywords.map(async (keyword) => (
 			await prisma.keyword.upsert({
-				where: {
-					keyword: keyword,
-				},
+				where: { keyword },
 				update: {
 				},
-				create: {
-					keyword: keyword,
-				},
+				create: { keyword },
 			})
 		)))
 	),
 	delete: async (id) => await prisma.keyword.delete({
-		where: {
-			id: id,
-		},
+		where: { id },
 	}),
 }
 
@@ -758,25 +701,21 @@ const keywordsOnLabels = {
 	createMany: async (labelId, keywords) => (
 		await prisma.keywordsOnLabels.createMany({
 			data: keywords.map((keyword) => ({
-				labelId: labelId,
+				labelId,
 				keywordId: keyword.id,
 			})),
 		})
 	),
 	deleteMany: async (labelId, keep) => {
 		const keywords = await prisma.keywordsOnLabels.findMany({
-			where: {
-				labelId: labelId,
-			},
+			where: { labelId },
 			select: {
 				keywordId: true,
 			},
 		})
 
 		await prisma.keywordsOnLabels.deleteMany({
-			where: {
-				labelId: labelId,
-			},
+			where: { labelId },
 		})
 
 		const keepId = keep.map(({ id }) => id)
@@ -789,9 +728,7 @@ const keywordsOnLabels = {
 			const { keywordId } = id
 
 			if (!await prisma.keywordsOnLabels.count({
-				where: {
-					keywordId: keywordId,
-				},
+				where: { keywordId },
 				take: 1,
 			})) {
 				await keyword.delete(keywordId)
@@ -841,7 +778,7 @@ async function uniqueKeywords(labelId, keywords) {
 
 		const sets = await prisma.keywordsOnLabels.groupBy({
 			by: 'labelId',
-			where: where,
+			where,
 			_count: {
 				keywordId: true,
 			},
@@ -939,9 +876,7 @@ export const highlight = {
 
 		if (isUpdatingColor) {
 			const newColor = await prisma.color.findUnique({
-				where: {
-					color: color,
-				},
+				where: { color },
 			})
 
 			if (newColor) {
@@ -954,9 +889,7 @@ export const highlight = {
 						where: {
 							colorId: id,
 						},
-						data: {
-							colorId: colorId,
-						},
+						data: { colorId },
 					})
 
 					await prisma.color.delete({
@@ -990,5 +923,359 @@ export const highlight = {
 		}
 
 		return false
+	},
+}
+
+const analysisSelect = {
+	id: true,
+	title: true,
+	createdAt: true,
+}
+
+const analysisJobSelect = {
+	id: true,
+}
+
+const analysisCreateDateItem = async (where, item, orderBy) => {
+	const job = await prisma.job.findFirst({
+		where,
+		select: {
+			[item]: true,
+		},
+		orderBy: {
+			[item]: orderBy,
+		},
+	})
+
+	return {
+		item,
+		date: job[item],
+	}
+}
+
+const analysisCreateDatePublished = async (where, orderBy) => {
+	const job = await prisma.job.findFirst({
+		where: {
+			...where,
+			published: {
+				...where.published,
+				not: null,
+			},
+		},
+		select: {
+			published: true,
+		},
+		orderBy: {
+			published: orderBy,
+		},
+	})
+
+	if (job) {
+		return {
+			item: 'published',
+			date: job.published,
+		}
+	}
+
+	return await analysisCreateDateItem(where, 'createdAt', orderBy)
+}
+
+const analysisCreateDate = async (dateTime, where, item, isPublished, orderBy) => {
+	if (dateTime) {
+		const { date, time } = dateTime
+
+		return {
+			item,
+			date: jobNewDate(date, time),
+		}
+	} else if (isPublished) {
+		return await analysisCreateDatePublished(where, orderBy)
+	} else {
+		return await analysisCreateDateItem(where, item, orderBy)
+	}
+}
+
+const analysisLabelsReduce = (labels, { id, labelId }) => ({
+	...labels,
+	[labelId]: id,
+})
+
+const analysisLabelsIdReduce = (labels, newLabels) => [
+	...labels,
+	...newLabels,
+]
+
+const analysisCreateLabels = async (jobsId) => {
+	const sections = await prisma.section.findMany({
+		where: {
+			jobId: {
+				in: jobsId,
+			},
+		},
+		select: {
+			content: true,
+			jobId: true,
+		},
+	})
+
+	const content = sections.reduce((items, { content, jobId }) => ({
+		...items,
+		[jobId]: items[jobId] ? [
+			...items[jobId],
+			content,
+		] : [
+			content,
+		],
+	}), {})
+
+	const contents = Object.entries(content).map(([ jobId, content ]) => ({
+		jobId,
+		content: content.join('\n'),
+	}))
+
+	const labels = await prisma.label.findMany({
+		select: {
+			id: true,
+			keywords: {
+				select: {
+					keyword: {
+						select: {
+							keyword: true,
+						},
+					},
+				},
+			},
+		},
+		orderBy: {
+			label: 'asc',
+		},
+	})
+
+	const regex = labels.map(({ id, keywords }) => ({
+		id,
+		regex: newRegex(keywords.map(({ keyword }) => (
+			keyword.keyword
+		))),
+	}))
+
+	const labelsOnJobs = contents.map(({ jobId, content }) => ({
+		jobId,
+		labels: regex.map(({ id, regex }) => ({
+			id,
+			regex: regex.test(content),
+		})).filter(({ regex }) => regex).map(({ id }) => id),
+	}))
+
+	const labelsId = labelsOnJobs.map(({ labels }) => labels).reduce(analysisLabelsIdReduce, [])
+
+	const analysisLabels = await prisma.analysisLabel.findMany({
+		where: {
+			labelId: {
+				in: labelsId,
+			},
+			labelLabel: null,
+		},
+		select: {
+			id: true,
+			labelId: true,
+		},
+	})
+
+	const analysisLabelsId = analysisLabels.map(({ labelId }) => labelId)
+	const newLabelsId = labelsId.filter((id) => analysisLabelsId.indexOf(id) < 0)
+
+	const newAnalysisLabels = await prisma.analysisLabel.createManyAndReturn({
+		data: newLabelsId.map((labelId) => ({ labelId })),
+		select: {
+			id: true,
+			labelId: true,
+		},
+	})
+
+	return {
+		labels: {
+			...analysisLabels.reduce(analysisLabelsReduce, {}),
+			...newAnalysisLabels.reduce(analysisLabelsReduce, {}),
+		},
+		jobs: labelsOnJobs,
+	}
+}
+
+const analysisJobsReduce = (jobs, { id, jobId }) => ({
+	...jobs,
+	[jobId]: id,
+})
+
+const analysisCreateLabelsOnJobs = async (analysisId, jobs) => {
+	const jobsId = jobs.map(({ id }) => id)
+
+	const analysisJobs = await prisma.analysisJob.findMany({
+		where: {
+			title: null,
+			jobId: {
+				in: jobsId,
+			},
+		},
+		select: {
+			id: true,
+			jobId: true,
+		},
+	})
+
+	const analysisJobsId = analysisJobs.map(({ jobId }) => jobId)
+	const newJobsId = jobsId.filter((id) => analysisJobsId.indexOf(id) < 0)
+
+	const newAnalysisJobs = await prisma.analysisJob.createManyAndReturn({
+		data: newJobsId.map((jobId) => ({ jobId })),
+		select: {
+			id: true,
+			jobId: true,
+		},
+	})
+
+	const labelsOnJobs = {
+		labels: await analysisCreateLabels(jobsId),
+		jobs: {
+			...analysisJobs.reduce(analysisJobsReduce, {}),
+			...newAnalysisJobs.reduce(analysisJobsReduce, {}),
+		},
+	}
+
+	const analysisLabelsOnJobs = labelsOnJobs.labels.jobs.map(({ jobId, labels }) => (
+		labels.map((id) => [
+			labelsOnJobs.labels.labels[id],
+			labelsOnJobs.jobs[jobId],
+		])
+	)).reduce(analysisLabelsIdReduce, []).map(([ analysisLabelId, analysisJobId ]) => ({
+		analysisId,
+		analysisLabelId,
+		analysisJobId,
+	}))
+
+	await prisma.labelsOnJobs.createMany({
+		data: analysisLabelsOnJobs,
+	})
+}
+
+const analysisCreateFromJobs = async (jobs, where, { search, filter, start, end }) => {
+	if (jobs.length > 0) {
+		const item = jobDateItem[filter & DATE] || 'createdAt'
+		const isPublished = !!(filter & PUBLISHED)
+
+		const startDate = await analysisCreateDate(newDateTime(start), where, item, isPublished, 'asc')
+		const endDate = await analysisCreateDate(newDateTime(end), where, item, isPublished, 'desc')
+
+		if (isPublished && startDate.item !== 'published') {
+			const analysis = await prisma.analysis.create({
+				data: {
+					title: 'Untitled Analysis',
+					search,
+					filter: filter & TEXT,
+					start: startDate.date,
+					end: endDate.date,
+				},
+				select: analysisSelect,
+			})
+
+			await analysisCreateLabelsOnJobs(analysis.id, jobs)
+
+			return analysis
+		} else {
+			const analysis = await prisma.analysis.create({
+				data: {
+					title: 'Untitled Analysis',
+					search,
+					filter,
+					start: startDate.date,
+					end: endDate.date,
+				},
+				select: analysisSelect,
+			})
+
+			await analysisCreateLabelsOnJobs(analysis.id, jobs)
+
+			return analysis
+		}
+	}
+
+	return false
+}
+
+const analysisCreateWhere = async (where, analysis) => (where ? (
+	await analysisCreateFromJobs(await prisma.job.findMany({
+		where,
+		select: analysisJobSelect,
+	}), where, analysis)
+) : (
+	await analysisCreateFromJobs(await prisma.job.findMany({
+		select: analysisJobSelect,
+	}), where, analysis)
+))
+
+const analysisCreateSimple = async (search) => await analysisCreateWhere(jobSearchSimpleWhere(search), {
+	search,
+	filter: 0,
+	start: '',
+	end: '',
+})
+
+const analysisCreateAdvanced = async (search, start, end, bits) => {
+	const hasNoText = noText(bits)
+	const hasNoDate = noDate(bits)
+	const analysis = {
+		search,
+		filter: bits,
+		start,
+		end,
+	}
+
+	if (hasNoText && hasNoDate) {
+		return await analysisCreateWhere(false, analysis)
+	} else if (hasNoText) {
+		const where = jobSearchDateWhere(start, end, bits)
+
+		return await analysisCreateWhere(where, analysis)
+	} else if (hasNoDate) {
+		const where = jobSearchTextWhere(search, bits)
+
+		return await analysisCreateWhere(where, analysis)
+	} else {
+		const whereDate = jobSearchDateWhere(start, end, bits)
+		const whereText = jobSearchTextWhere(search, bits)
+
+		if (whereDate && whereText) {
+			const where = {
+				...whereDate,
+				...whereText,
+			}
+
+			return await analysisCreateWhere(where, analysis)
+		} else if (whereDate) {
+			return await analysisCreateWhere(whereDate, analysis)
+		} else if (whereText) {
+			return await analysisCreateWhere(whereText, analysis)
+		} else {
+			return await analysisCreateWhere(false, analysis)
+		}
+	}
+}
+
+export const analysis = {
+	findMany: async () => await prisma.analysis.findMany({
+		select: analysisSelect,
+	}),
+	findUnique: async (id) => await prisma.analysis.findUniqueOrThrow({
+		where: { id },
+	}),
+	create: async (search, start, end, filter) => {
+		if (typeof(search) !== 'string' || typeof(start) !== 'string' || typeof(end) !== 'string') {
+			return false
+		}
+
+		if (isNaN(filter) || filter <= 0) {
+			return await analysisCreateSimple(search.trim())
+		} else {
+			return await analysisCreateAdvanced(search.trim(), start.trim(), end.trim(), filter & MAX)
+		}
 	},
 }

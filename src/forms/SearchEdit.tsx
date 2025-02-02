@@ -1,7 +1,8 @@
 import SearchCheckboxes from './SearchCheckboxes'
 import SearchDate from './SearchDate'
+import SearchDescription from '/src/components/SearchDescription'
 
-import * as Search from '/src/Search'
+import { reset, create, setAdvanced, removeAdvanced, empty, changed } from '/src/Search'
 
 function SearchEdit(props) {
 	const {
@@ -10,7 +11,10 @@ function SearchEdit(props) {
 		setStartAfter,
 		setPreviousStart,
 		start, setStart,
+		addAnalysis,
 	} = props
+
+	const id = `search-${props.id}`
 
 	function setNewSearchProp(prop, value) {
 		setNewSearch({
@@ -19,41 +23,41 @@ function SearchEdit(props) {
 		})
 	}
 
-	const newSearchContent = Search.create(newSearch)
+	const newSearchContent = create(newSearch)
 
 	function handleSubmit(event) {
 		event.preventDefault()
 
-		if (!Search.empty(newSearchContent) && Search.changed(search, newSearchContent)) {
+		if (!empty(newSearchContent) && changed(search, newSearchContent)) {
 			setSearch(newSearchContent)
 
 			setPreviousStart(-1)
 			setStart(0)
 		} else {
-			if (!Search.empty(search) || start) {
+			if (!empty(search) || start) {
 				setStartAfter(false)
 
 				setPreviousStart(-1)
 				setStart(0)
 			}
 
-			setSearch(Search.reset)
-			setNewSearch(Search.reset)
+			setSearch(reset)
+			setNewSearch(reset)
 		}
 	}
 
 	return (
 		<>
 			<form onSubmit={handleSubmit}>
-				<label htmlFor='search'>Search: </label>
+				<label htmlFor={id}>Search: </label>
 				<input
-					id='search'
+					id={id}
 					defaultValue={newSearch.search}
 					onChange={(e) => setNewSearchProp('search', e.target.value)}
 					type='text'
 				/>
 				<button type='submit'>
-					{Search.empty(search) || !Search.empty(newSearchContent) && Search.changed(search, newSearchContent) ? (
+					{empty(search) || !empty(newSearchContent) && changed(search, newSearchContent) ? (
 						'Search'
 					) : (
 						'Reset'
@@ -63,25 +67,28 @@ function SearchEdit(props) {
 				{newSearch.isAdvanced ? (
 					<>
 						<SearchCheckboxes
-							id='search-0'
+							id={id}
 							newSearch={newSearch}
 							setNewSearch={setNewSearch}
 						/>
 						<SearchDate
-							id='search-0'
+							id={id}
 							newSearch={newSearch}
 							setNewSearch={setNewSearch}
 						/>
 						<br/>
 						<br/>
-						<button onClick={() => setNewSearch(Search.removeAdvanced(newSearch))}>Remove Advanced Filters</button>
+						<button onClick={() => setNewSearch(removeAdvanced(newSearch))}>Remove Advanced Filters</button>
 					</>
 				) : (
-					<button onClick={() => setNewSearch(Search.setAdvanced(newSearch))}>Advanced</button>
+					<button onClick={() => setNewSearch(setAdvanced(newSearch))}>Advanced</button>
 				)}
 			</form>
-			{!Search.empty(search) ? (
-				<div>Showing results for '<strong>{search.search}</strong>'...</div>
+			{!empty(search) ? (
+				<SearchDescription search={search}>
+					<br/>
+					<button onClick={() => addAnalysis(search)}>New Analysis</button>
+				</SearchDescription>
 			) : (
 				[]
 			)}
