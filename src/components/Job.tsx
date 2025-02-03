@@ -36,9 +36,9 @@ function Job(props) {
 		return title ? (
 			(job) => ({
 				...job,
-				title: title,
+				title,
 				newTitle: title,
-				url: url,
+				url,
 				newUrl: url,
 				isEditing: false,
 			})
@@ -150,7 +150,7 @@ function Job(props) {
 		const newId = newSection.id
 
 		const sections = await fetchUpdate(`/sections/${id}/move`, {
-			newId: newId,
+			newId,
 		})
 
 		if (sections) {

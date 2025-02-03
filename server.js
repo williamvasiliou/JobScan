@@ -186,7 +186,43 @@ export function middleware(app, prisma) {
 	})
 
 	app.get('/analysis', async (req, res) => {
-		await prismaQuery(res, prisma.analysis.findMany)
+		try {
+			const search = req.query.q?.trim() || ''
+
+			const start = req.query.start
+			const end = req.query.end
+			const filter = ((filter) => !isNaN(filter) && filter > 0 ? filter : 0)(Number(req.query.filter))
+
+			const before = Number(req.query.before)
+			const after = Number(req.query.after)
+
+			const hasSearch = search || start || end || filter > 0
+
+			if (isNaN(before) && isNaN(after)) {
+				if (hasSearch) {
+					res.status(200).json(await prisma.analysis.findManySearch(search, start, end, filter, true, 0))
+				} else {
+					res.status(200).json(await prisma.analysis.findMany())
+				}
+			} else if (isNaN(before)) {
+				if (hasSearch) {
+					res.status(200).json(await prisma.analysis.findManySearch(search, start, end, filter, true, after))
+				} else {
+					res.status(200).json(await prisma.analysis.findManyStart(true, after))
+				}
+			} else if (isNaN(after)) {
+				if (hasSearch) {
+					res.status(200).json(await prisma.analysis.findManySearch(search, start, end, filter, false, before))
+				} else {
+					res.status(200).json(await prisma.analysis.findManyStart(false, before))
+				}
+			} else {
+				throw new Error()
+			}
+		} catch(e) {
+			console.log(e)
+			res.status(500).json({})
+		}
 	})
 
 	app.get('/analysis/:id', async (req, res) => {
@@ -202,6 +238,17 @@ export function middleware(app, prisma) {
 				start || '',
 				end || '',
 				Number(filter),
+			)
+		))
+	})
+
+	app.put('/analysis/:id', async (req, res) => {
+		const { body, params } = req
+
+		await prismaQuery(res, async () => (
+			await prisma.analysis.update(
+				Number(params.id),
+				body.title,
 			)
 		))
 	})

@@ -1,17 +1,42 @@
+import JobsActions from './JobsActions'
 import JobAdd from '/src/forms/JobAdd'
 import SearchEdit from '/src/forms/SearchEdit'
 import JobList from './JobList'
 import Job from './Job'
+import Analysis from './Analysis'
 
-import * as Content from '/src/Content'
-import * as JOB from '/src/Job'
+import { newTitle, newContent, fromPrisma, toPrisma } from '/src/Content'
+import { ADD, VIEW, ANALYSIS } from '/src/Job'
 
 import { fetchCreate, fetchRead, fetchUpdate, jobTake } from '/src/Fetch'
 
 function Jobs(props) {
+	const { hasAnalysis, analysis, mode, setMode } = props
+
+	if (mode === ANALYSIS) {
+		const {
+			setAnalysisStartAfter,
+			setAnalysisPreviousStart,
+			analysisStart, setAnalysisStart,
+			currentAnalysis, setCurrentAnalysis,
+		} = props
+
+		return (
+			<Analysis
+				analysis={analysis}
+				setMode={setMode}
+				setStartAfter={setAnalysisStartAfter}
+				setPreviousStart={setAnalysisPreviousStart}
+				start={analysisStart}
+				setStart={setAnalysisStart}
+				currentAnalysis={currentAnalysis}
+				setCurrentAnalysis={setCurrentAnalysis}
+			/>
+		)
+	}
+
 	const {
 		welcome, jobs,
-		mode, setMode,
 		search, setSearch,
 		newSearch, setNewSearch,
 		isStartAfter, setStartAfter,
@@ -30,16 +55,16 @@ function Jobs(props) {
 
 	async function addJob(title, url, header, content) {
 		const job = await fetchCreate('/jobs', {
-			title: Content.newTitle(title),
+			title: newTitle(title),
 			url: url.trim(),
-			header: Content.newTitle(header),
-			content: Content.newContent(content),
+			header: newTitle(header),
+			content: newContent(content),
 		})
 
 		if (job) {
-			setMode(JOB.VIEW)
+			setMode(VIEW)
 			setPreviousStart(start - 1)
-			setCurrentJob(Content.fromPrisma(job))
+			setCurrentJob(fromPrisma(job))
 
 			return true
 		}
@@ -55,8 +80,8 @@ function Jobs(props) {
 		const job = await fetchRead(`/jobs/${id}`)
 
 		if (job) {
-			setMode(JOB.VIEW)
-			setCurrentJob(Content.fromPrisma(job))
+			setMode(VIEW)
+			setCurrentJob(fromPrisma(job))
 		}
 	}
 
@@ -68,9 +93,9 @@ function Jobs(props) {
 		const job = await fetchRead(`/jobs/${id}`)
 
 		if (job) {
-			setMode(JOB.VIEW)
+			setMode(VIEW)
 			setCurrentJob({
-				...Content.fromPrisma(job),
+				...fromPrisma(job),
 				isEditing: true,
 			})
 		}
@@ -86,7 +111,7 @@ function Jobs(props) {
 		if (currentJob) {
 			const updated = update(currentJob)
 
-			const job = await fetchUpdate(`/jobs/${currentJob.id}`, Content.toPrisma(updated))
+			const job = await fetchUpdate(`/jobs/${currentJob.id}`, toPrisma(updated))
 
 			if (job) {
 				const { title, url, updatedAt } = job
@@ -94,8 +119,8 @@ function Jobs(props) {
 				setPreviousStart(start - 1)
 				setCurrentJob({
 					...updated,
-					title: title,
-					url: url,
+					title,
+					url,
 					updatedAt: new Date(updatedAt),
 				})
 			}
@@ -115,18 +140,17 @@ function Jobs(props) {
 		() => (
 			<JobList
 				items={jobs}
-				item={(job) => (
-					<li key={job.id}>
-						<div onClick={() => viewJob(job.id)}>
+				item={({ id, title, url }) => (
+					<li key={id}>
+						<div onClick={() => viewJob(id)}>
 							<hr/>
-							<span>#{job.id}</span>
-							<br/>
-							<strong>{job.title}</strong>
+							<div>#{id}</div>
+							<strong>{title}</strong>
 						</div>
-						{job.url ?
-							<a href={job.url} target='_blank'>{job.url}</a>
+						{url ?
+							<a href={url} target='_blank'>{url}</a>
 						:
-							<button onClick={() => editJob(job.id)}>
+							<button onClick={() => editJob(id)}>
 								<em>Click to add URL</em>
 							</button>
 						}
@@ -171,16 +195,16 @@ function Jobs(props) {
 		<>
 			{!isStartAfter || welcome ? (
 				<>
-					{mode === JOB.LIST ? (
-						<button onClick={() => setModeWithoutJob(JOB.ADD)}>New Job</button>
-					) : (
-						<button onClick={() => setModeWithoutJob(JOB.LIST)}>Back</button>
-					)}
+					<JobsActions
+						mode={mode}
+						setMode={setModeWithoutJob}
+						hasAnalysis={hasAnalysis}
+					/>
 					<br/>
 					{views[mode]()}
 				</>
 			) : (
-				views[JOB.ADD]()
+				views[ADD]()
 			)}
 		</>
 	)

@@ -9,7 +9,7 @@ import KeywordAdd from '/src/forms/KeywordAdd'
 import { addAnalysis } from '/src/Analysis'
 
 import { ADD, LIST } from '/src/Job'
-import { reset, query as searchQuery } from '/src/Search'
+import { reset, empty, query as searchQuery } from '/src/Search'
 
 import { fetchRead } from '/src/Fetch'
 
@@ -30,48 +30,67 @@ function App(props) {
 
 	const [currentJob, setCurrentJob] = useState(0)
 
-	function showFirstJobs() {
-		setJobsAfter(false)
-		setJobsPreviousStart(-1)
-		setJobsStart(0)
-	}
-
 	function showWelcome() {
 		setShowsJobs(true)
 		setJobsMode(ADD)
 		setCurrentJob(0)
 	}
 
-	if (!hasJobs) {
-		if (jobsSearch) {
-			if (jobsStart > 0) {
-				showFirstJobs()
-			}
-		} else {
-			if (jobsStart > 0) {
-				showFirstJobs()
-			} else if(!showsJobs) {
-				showWelcome()
+	function setFromQuery(set, search, start, setAfter, setPrevious, setStart, mode) {
+		return (items) => {
+			if (items.length > 0) {
+				set(items)
+			} else if (empty(search)) {
+				if (start) {
+					setAfter(false)
+					setPrevious(-1)
+					setStart(0)
+				} else {
+					set([])
+					mode()
+				}
+			} else {
+				if (start) {
+					setAfter(false)
+					setPrevious(-1)
+					setStart(0)
+				}
+
+				set(items)
 			}
 		}
 	}
 
-	if (jobsPreviousStart !== jobsStart) {
-		const query = searchQuery(jobsSearch)
+	async function setItems(search, after, start, resource, set) {
+		const query = searchQuery(search)
 
-		if (jobsStart) {
-			if (jobsAfter) {
-				query.push(`after=${jobsStart}`)
+		if (start) {
+			if (after) {
+				query.push(`after=${start}`)
 			} else {
-				query.push(`before=${jobsStart}`)
+				query.push(`before=${start}`)
 			}
 		}
 
 		if (query.length > 0) {
-			fetchRead(`/jobs?${query.join('&')}`).then((jobs) => setJobs(jobs))
+			fetchRead(`${resource}?${query.join('&')}`).then(set)
 		} else {
-			fetchRead('/jobs').then((jobs) => setJobs(jobs))
+			fetchRead(resource).then(set)
 		}
+	}
+
+	if (jobsPreviousStart !== jobsStart) {
+		const setJobsFromQuery = setFromQuery(
+			setJobs,
+			jobsSearch,
+			jobsStart,
+			setJobsAfter,
+			setJobsPreviousStart,
+			setJobsStart,
+			showWelcome,
+		)
+
+		setItems(jobsSearch, jobsAfter, jobsStart, '/jobs', setJobsFromQuery)
 
 		setJobsPreviousStart(jobsStart)
 	}
@@ -87,10 +106,38 @@ function App(props) {
 		await addKeyword(label, keywords, color.replace('#', ''), colors, setColors, highlights, setHighlights)
 	}
 
-	const [analysis, setAnalysis] = useState([])
+	const [analysis, setAnalysis] = useState(props.analysis)
+	const hasAnalysis = analysis.length > 0
+
+	const [analysisSearch, setAnalysisSearch] = useState(reset)
+	const [analysisNewSearch, setAnalysisNewSearch] = useState(reset)
+
+	const [analysisAfter, setAnalysisAfter] = useState(true)
+	const [analysisPreviousStart, setAnalysisPreviousStart] = useState(0)
+	const [analysisStart, setAnalysisStart] = useState(0)
+
+	const [currentAnalysis, setCurrentAnalysis] = useState(0)
 
 	async function newAnalysis(search) {
-		await addAnalysis(search, analysis, setAnalysis)
+		if (await addAnalysis(search, analysis, setAnalysis)) {
+			setAnalysisPreviousStart(analysisStart - 1)
+		}
+	}
+
+	if (analysisPreviousStart !== analysisStart) {
+		const setAnalysisFromQuery = setFromQuery(
+			setAnalysis,
+			analysisSearch,
+			analysisStart,
+			setAnalysisAfter,
+			setAnalysisPreviousStart,
+			setAnalysisStart,
+			() => setJobsMode(LIST),
+		)
+
+		setItems(analysisSearch, analysisAfter, analysisStart, '/analysis', setAnalysisFromQuery)
+
+		setAnalysisPreviousStart(analysisStart)
 	}
 
 	const welcome = hasJobs || jobsSearch || jobsStart
@@ -133,7 +180,19 @@ function App(props) {
 					setColors={setColors}
 					highlights={highlights}
 					setHighlights={setHighlights}
+					hasAnalysis={hasAnalysis}
+					analysis={analysis}
 					addAnalysis={newAnalysis}
+					analysisSearch={analysisSearch}
+					setAnalysisSearch={setAnalysisSearch}
+					analysisNewSearch={analysisNewSearch}
+					setAnalysisNewSearch={setAnalysisNewSearch}
+					setAnalysisStartAfter={setAnalysisAfter}
+					setAnalysisPreviousStart={setAnalysisPreviousStart}
+					analysisStart={analysisStart}
+					setAnalysisStart={setAnalysisStart}
+					currentAnalysis={currentAnalysis}
+					setCurrentAnalysis={setCurrentAnalysis}
 				/>
 			) : (
 				<Keywords
