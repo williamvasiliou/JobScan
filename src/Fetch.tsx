@@ -1,6 +1,7 @@
 export const base = 'http://localhost:5173'
 
-export const jobTake = 5
+export const jobTake = 10
+export const analysisTake = 5
 
 export async function fetchCreate(resource, body) {
 	const response = await fetch(`${base}${resource}`, {

@@ -47,14 +47,14 @@ export const fromPrisma = (colors) => ({ id, label, colorId, keywords }) => {
 	const highlightColor = colors[colorId]
 
 	return {
-		id: id,
-		colorId: colorId,
+		id,
+		colorId,
 		isEditing: false,
 		isColoring: false,
 		isUpdatingColor: false,
 		color: highlightColor,
 		newColor: highlightColor,
-		label: label,
+		label,
 		newLabel: label,
 		keywords: highlightKeywords,
 		newKeywords: highlightKeywords,
@@ -75,7 +75,7 @@ const create = ([ label, keywords ]) => {
 		isEditing: false,
 		isColoring: false,
 		isUpdatingColor: false,
-		color: color,
+		color,
 		newColor: color,
 		label: highlightLabel,
 		newLabel: highlightLabel,
@@ -108,9 +108,9 @@ export const addColor = (colorId, color, colors, setColors) => {
 
 export const addKeyword = async (label, keywords, color, colors, setColors, highlights, setHighlights) => {
 	const highlight = await fetchCreate('/highlights', {
-		label: label,
-		keywords: keywords,
-		color: color,
+		label,
+		keywords,
+		color,
 	})
 
 	if (highlight) {
@@ -163,7 +163,7 @@ export const saveColor = async (highlight, updateColor, colors, setColors, updat
 	const { id, colorId, isUpdatingColor, color, newColor } = highlight
 
 	const newHighlight = await fetchUpdate(`/highlights/${id}/colors/${colorId}`, {
-		isUpdatingColor: isUpdatingColor,
+		isUpdatingColor,
 		color: newColor,
 	})
 

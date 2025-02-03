@@ -9,6 +9,7 @@ export const {
 
 export const render = async () => {
 	const jobs = await job.findMany()
+	const analysis = await prisma.analysis.findMany()
 
 	return renderToString(
 		<StrictMode>
@@ -16,6 +17,7 @@ export const render = async () => {
 				jobs={jobs}
 				colors={[]}
 				highlights={[]}
+				analysis={analysis}
 			/>
 		</StrictMode>,
 	)

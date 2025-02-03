@@ -1,10 +1,10 @@
 import { PrismaClient } from '@prisma/client'
 
 import { newTitle, newContent, newDate, newTime } from './Content'
-import { newKeywords, newRegex } from './Keyword'
+import { unique, newKeywords, newRegex } from './Keyword'
 import { TITLE, URL, HEADER, CONTENT, TEXT, CREATED, UPDATED, PUBLISHED, DATE, MAX, noText, noDate } from './Search'
 
-import { jobTake } from './Fetch'
+import { jobTake, analysisTake } from './Fetch'
 
 const prisma = new PrismaClient()
 
@@ -64,7 +64,9 @@ const jobSectionsOR = (OR) => ({
 	},
 })
 
-const jobSearchTextWhere = (search, bits) => {
+const jobSearchTextWhere = (text, bits) => {
+	const search = newTitle(text)
+
 	if (!search) {
 		return false
 	}
@@ -339,6 +341,8 @@ export const job = {
 		const jobUrl = url.trim()
 
 		if (jobTitle) {
+			await analysis.updateJob(id)
+
 			return await prisma.job.update({
 				where: { id },
 				data: {
@@ -364,6 +368,8 @@ export const job = {
 		const timeTrim = time.trim()
 
 		if (!dateTrim && !timeTrim) {
+			await analysis.updateJob(id)
+
 			return await prisma.job.update({
 				where: { id },
 				data: {
@@ -379,6 +385,8 @@ export const job = {
 			const jobTime = newTime(timeTrim)
 
 			if (jobDate && jobTime) {
+				await analysis.updateJob(id)
+
 				return await prisma.job.update({
 					where: { id },
 					data: {
@@ -394,12 +402,16 @@ export const job = {
 
 		return false
 	},
-	updateUpdatedAt: async (id) => await prisma.job.update({
-		where: { id },
-		data: {
-			updatedAt: new Date(),
-		},
-	}),
+	updateUpdatedAt: async (id) => {
+		await analysis.updateJob(id)
+
+		await prisma.job.update({
+			where: { id },
+			data: {
+				updatedAt: new Date(),
+			},
+		})
+	},
 }
 
 export const section = {
@@ -662,15 +674,21 @@ const prismaLabel = {
 			colorId,
 		},
 	}),
-	update: async (id, label) => await prisma.label.update({
-		where: { id },
-		data: { label },
-	}),
+	update: async (id, label) => {
+		await analysis.updateLabel(id)
+
+		return await prisma.label.update({
+			where: { id },
+			data: { label },
+		})
+	},
 	updateColor: async (id, colorId) => await prisma.label.update({
 		where: { id },
 		data: { colorId },
 	}),
 	delete: async (id) => {
+		await analysis.deleteLabel(id)
+
 		const label = await prisma.label.delete({
 			where: { id },
 		})
@@ -936,8 +954,24 @@ const analysisJobSelect = {
 	id: true,
 }
 
+const analysisCreateDateCreated = async (orderBy) => {
+	const { createdAt } = await prisma.job.findFirst({
+		select: {
+			createdAt: true,
+		},
+		orderBy: {
+			createdAt: orderBy,
+		},
+	})
+
+	return {
+		isPublished: false,
+		date: createdAt,
+	}
+}
+
 const analysisCreateDateItem = async (where, item, orderBy) => {
-	const job = await prisma.job.findFirst({
+	const job = where ? (await prisma.job.findFirst({
 		where,
 		select: {
 			[item]: true,
@@ -945,15 +979,26 @@ const analysisCreateDateItem = async (where, item, orderBy) => {
 		orderBy: {
 			[item]: orderBy,
 		},
-	})
+	})) : (await prisma.job.findFirst({
+		select: {
+			[item]: true,
+		},
+		orderBy: {
+			[item]: orderBy,
+		},
+	}))
 
 	return {
-		item,
+		isPublished: false,
 		date: job[item],
 	}
 }
 
 const analysisCreateDatePublished = async (where, orderBy) => {
+	if (!where || !where.published) {
+		return await analysisCreateDateCreated(orderBy)
+	}
+
 	const job = await prisma.job.findFirst({
 		where: {
 			...where,
@@ -972,7 +1017,7 @@ const analysisCreateDatePublished = async (where, orderBy) => {
 
 	if (job) {
 		return {
-			item: 'published',
+			isPublished: true,
 			date: job.published,
 		}
 	}
@@ -985,7 +1030,7 @@ const analysisCreateDate = async (dateTime, where, item, isPublished, orderBy) =
 		const { date, time } = dateTime
 
 		return {
-			item,
+			isPublished,
 			date: jobNewDate(date, time),
 		}
 	} else if (isPublished) {
@@ -1066,7 +1111,7 @@ const analysisCreateLabels = async (jobsId) => {
 		})).filter(({ regex }) => regex).map(({ id }) => id),
 	}))
 
-	const labelsId = labelsOnJobs.map(({ labels }) => labels).reduce(analysisLabelsIdReduce, [])
+	const labelsId = unique(labelsOnJobs.map(({ labels }) => labels).reduce(analysisLabelsIdReduce, []).sort())
 
 	const analysisLabels = await prisma.analysisLabel.findMany({
 		where: {
@@ -1157,44 +1202,39 @@ const analysisCreateLabelsOnJobs = async (analysisId, jobs) => {
 	})
 }
 
+const analysisCreate = async (jobs, search, filter, start, end) => {
+	const analysis = await prisma.analysis.create({
+		data: {
+			title: 'Untitled Analysis',
+			search,
+			filter,
+			start,
+			end,
+		},
+		select: analysisSelect,
+	})
+
+	await analysisCreateLabelsOnJobs(analysis.id, jobs)
+
+	return analysis
+}
+
 const analysisCreateFromJobs = async (jobs, where, { search, filter, start, end }) => {
 	if (jobs.length > 0) {
-		const item = jobDateItem[filter & DATE] || 'createdAt'
-		const isPublished = !!(filter & PUBLISHED)
+		const date = filter & DATE
+
+		const item = jobDateItem[date] || 'createdAt'
+		const isPublished = date === PUBLISHED
 
 		const startDate = await analysisCreateDate(newDateTime(start), where, item, isPublished, 'asc')
 		const endDate = await analysisCreateDate(newDateTime(end), where, item, isPublished, 'desc')
 
-		if (isPublished && startDate.item !== 'published') {
-			const analysis = await prisma.analysis.create({
-				data: {
-					title: 'Untitled Analysis',
-					search,
-					filter: filter & TEXT,
-					start: startDate.date,
-					end: endDate.date,
-				},
-				select: analysisSelect,
-			})
+		const isDatePublished = startDate.isPublished && endDate.isPublished
 
-			await analysisCreateLabelsOnJobs(analysis.id, jobs)
-
-			return analysis
+		if (isPublished && !isDatePublished) {
+			return await analysisCreate(jobs, search, filter & TEXT, startDate.date, endDate.date)
 		} else {
-			const analysis = await prisma.analysis.create({
-				data: {
-					title: 'Untitled Analysis',
-					search,
-					filter,
-					start: startDate.date,
-					end: endDate.date,
-				},
-				select: analysisSelect,
-			})
-
-			await analysisCreateLabelsOnJobs(analysis.id, jobs)
-
-			return analysis
+			return await analysisCreate(jobs, search, filter, startDate.date, endDate.date)
 		}
 	}
 
@@ -1261,11 +1301,155 @@ const analysisCreateAdvanced = async (search, start, end, bits) => {
 }
 
 export const analysis = {
+	findUnique: async (id) => {
+		const analysis = await prisma.analysis.findUniqueOrThrow({
+			where: { id },
+			select: {
+				id: true,
+				title: true,
+				createdAt: true,
+				search: true,
+				filter: true,
+				start: true,
+				end: true,
+				jobs: {
+					select: {
+						analysisLabelId: true,
+						analysisJobId: true,
+					},
+				},
+			},
+		})
+
+		const analysisLabelId = unique(analysis.jobs.map(({ analysisLabelId }) => analysisLabelId).sort())
+
+		const updatedLabels = (await prisma.analysisLabel.findMany({
+			where: {
+				id: {
+					in: analysisLabelId,
+				},
+				labelLabel: {
+					not: null,
+				},
+			},
+			select: {
+				id: true,
+				labelLabel: true,
+			},
+		})).reduce((labels, { id, labelLabel }) => ({
+			...labels,
+			[id]: labelLabel,
+		}), {})
+
+		const labels = (await prisma.analysisLabel.findMany({
+			where: {
+				id: {
+					in: analysisLabelId,
+				},
+				labelLabel: null,
+			},
+			select: {
+				id: true,
+				label: {
+					select: {
+						label: true,
+					},
+				},
+			},
+		})).reduce((labels, { id, label }) => ({
+			...labels,
+			[id]: label.label,
+		}), {})
+
+		const analysisJobId = unique(analysis.jobs.map(({ analysisJobId }) => analysisJobId).sort())
+
+		const updatedJobs = (await prisma.analysisJob.findMany({
+			where: {
+				id: {
+					in: analysisJobId,
+				},
+				title: {
+					not: null,
+				},
+			},
+			select: {
+				id: true,
+				title: true,
+			},
+		})).reduce((jobs, { id, title }) => ({
+			...jobs,
+			[id]: title,
+		}), {})
+
+		const jobs = (await prisma.analysisJob.findMany({
+			where: {
+				id: {
+					in: analysisJobId,
+				},
+				title: null,
+			},
+			select: {
+				id: true,
+				job: {
+					select: {
+						title: true,
+					},
+				},
+			},
+		})).reduce((jobs, { id, job }) => ({
+			...jobs,
+			[id]: job.title,
+		}), {})
+
+		return {
+			...analysis,
+			labels: {
+				labels: {
+					...updatedLabels,
+					...labels,
+				},
+				jobs: {
+					...updatedJobs,
+					...jobs,
+				},
+			},
+		}
+	},
+	findManyStart: async (after, id) => (id > 0 ? (after ? (
+		await prisma.analysis.findMany({
+			where: {
+				id: {
+					lt: id,
+				},
+			},
+			orderBy: {
+				id: 'desc',
+			},
+			select: analysisSelect,
+			take: analysisTake,
+		})
+	) : (
+		(await prisma.analysis.findMany({
+			where: {
+				id: {
+					gt: id,
+				},
+			},
+			orderBy: {
+				id: 'asc',
+			},
+			select: analysisSelect,
+			take: analysisTake,
+		})).reverse()
+	)) : (
+		await analysis.findMany()
+	)),
 	findMany: async () => await prisma.analysis.findMany({
+		orderBy: {
+			id: 'desc',
+		},
 		select: analysisSelect,
-	}),
-	findUnique: async (id) => await prisma.analysis.findUniqueOrThrow({
-		where: { id },
+		take: analysisTake,
 	}),
 	create: async (search, start, end, filter) => {
 		if (typeof(search) !== 'string' || typeof(start) !== 'string' || typeof(end) !== 'string') {
@@ -1277,5 +1461,87 @@ export const analysis = {
 		} else {
 			return await analysisCreateAdvanced(search.trim(), start.trim(), end.trim(), filter & MAX)
 		}
+	},
+	update: async (id, title) => {
+		if (isNaN(id) || typeof(title) !== 'string') {
+			return false
+		}
+
+		const analysisTitle = newTitle(title)
+
+		if (analysisTitle) {
+			return await prisma.analysis.update({
+				where: { id },
+				data: {
+					title: analysisTitle,
+				},
+			})
+		}
+
+		return false
+	},
+	updateJob: async (jobId) => {
+		const {
+			title,
+			url,
+			createdAt,
+			updatedAt,
+			published,
+		} = await prisma.job.findUniqueOrThrow({
+			where: {
+				id: jobId,
+			},
+			select: {
+				title: true,
+				url: true,
+				createdAt: true,
+				updatedAt: true,
+				published: true,
+			},
+		})
+
+		await prisma.analysisJob.updateMany({
+			where: {
+				title: null,
+				jobId,
+			},
+			data: {
+				title,
+				url,
+				createdAt,
+				updatedAt,
+				published,
+			},
+		})
+	},
+	updateLabel: async (labelId) => {
+		const { label } = await prisma.label.findUniqueOrThrow({
+			where: {
+				id: labelId,
+			},
+			select: {
+				label: true,
+			},
+		})
+
+		await prisma.analysisLabel.updateMany({
+			where: {
+				labelId,
+				labelLabel: null,
+			},
+			data: {
+				labelLabel: label,
+			},
+		})
+	},
+	deleteLabel: async (labelId) => {
+		analysis.updateLabel(labelId)
+
+		await prisma.analysisLabel.updateMany({
+			where: { labelId },
+			data: {
+				labelId: null,
+			},
+		})
 	},
 }
