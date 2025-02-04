@@ -1,4 +1,6 @@
 import AnalysisActions from './AnalysisActions'
+import AnalysisLabels from './AnalysisLabels'
+import AnalysisJobs from './AnalysisJobs'
 import JobList from './JobList'
 
 import { viewAnalysis, saveAnalysis } from '/src/Analysis'
@@ -44,11 +46,20 @@ const checkboxes = (id, bits) => (
 	))
 )
 
-const date = (date, start, end) => (
+const date = (id, date, start, end) => (
 	<>
 		<br/>
 		<br/>
-		<div>Date: <strong>{date}</strong></div>
+		<input
+			id={`${id}-date`}
+			checked={!!date}
+			disabled={true}
+			type='checkbox'
+		/>
+		<label htmlFor={`${id}-date`}>
+			Date: <strong>{date || 'Created'}</strong>
+		</label>
+		<br/>
 		<div>From: <strong>{start.date} {start.time}</strong></div>
 		<div>To: <strong>{end.date} {end.time}</strong></div>
 	</>
@@ -56,30 +67,19 @@ const date = (date, start, end) => (
 
 function description(id, bits, search, start, end) {
 	if (bits > 0) {
-		if (bits & DATE) {
-			return (
-				<>
-					{text(`${id}-search`, search)}
-					<br/>
-					{checkboxes(`${id}-search`, bits)}
-					{date(dates[bits & DATE] || 'Created', start, end)}
-				</>
-			)
-		} else {
-			return (
-				<>
-					{text(`${id}-search`, search)}
-					<br/>
-					{checkboxes(`${id}-search`, bits)}
-					{date('Created', start, end)}
-				</>
-			)
-		}
+		return (
+			<>
+				{text(id, search)}
+				<br/>
+				{checkboxes(id, bits)}
+				{date(id, dates[bits & DATE] ?? 0, start, end)}
+			</>
+		)
 	} else {
 		return (
 			<>
-				{text(`${id}-search`, search)}
-				{date('Created', start, end)}
+				{text(id, search)}
+				{date(id, 0, start, end)}
 			</>
 		)
 	}
@@ -119,13 +119,16 @@ function analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart) 
 	}
 
 	async function save() {
-		if (await saveAnalysis(id, newTitle, setCurrentAnalysis)) {
+		if (await saveAnalysis(id, newTitle, currentAnalysis, setCurrentAnalysis)) {
 			updatePreviousStart()
 		}
 	}
 
 	return (
 		<>
+			<style>
+				{currentAnalysis.style}
+			</style>
 			{isEditing ? (
 				<>
 					<label htmlFor={`analysis-${id}-title`}>Title:</label>
@@ -160,21 +163,22 @@ function analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart) 
 			)}
 			<hr/>
 			<h3>Search</h3>
-			{description(`analysis-${id}`, filter, search, newDateTime(start), newDateTime(end))}
+			{description(`analysis-${id}-search`, filter, search, newDateTime(start), newDateTime(end))}
 			<hr/>
 			<h3>{currentAnalysis.count.labels} {currentAnalysis.noun.labels}</h3>
-			{currentAnalysis.values.labels.label}
+			<AnalysisLabels
+				labels={currentAnalysis.values.labels}
+				jobId={false}
+				currentAnalysis={currentAnalysis}
+				setCurrentAnalysis={setCurrentAnalysis}
+			/>
 			<hr/>
 			<h3>{currentAnalysis.count.jobs} {currentAnalysis.noun.jobs}</h3>
-			<ol>
-				{currentAnalysis.values.jobs.label.map(([ id, job, labels ]) => (
-					<li key={id}>
-						<hr/>
-						<h4>{job}</h4>
-						<div>{labels}</div>
-					</li>
-				))}
-			</ol>
+			<AnalysisJobs
+				jobs={currentAnalysis.values.jobs}
+				currentAnalysis={currentAnalysis}
+				setCurrentAnalysis={setCurrentAnalysis}
+			/>
 		</>
 	)
 }
@@ -189,8 +193,20 @@ function Analysis(props) {
 		currentAnalysis, setCurrentAnalysis,
 	} = props
 
-	function updatePreviousStart() {
-		setPreviousStart(start - 1)
+	function view(analysis) {
+		setCurrentAnalysis({
+			...analysis,
+			style: Object.entries(analysis.labels.colors).map(([ colorId, color ]) => (
+`.analysis.label.color-${colorId} {
+	border-color: #${color};
+}
+
+.analysis.label.color-${colorId}:hover,
+.analysis.label.selected.color-${colorId} {
+	background-color: #${color};
+}`
+			)).join('\n'),
+		})
 	}
 
 	return (
@@ -202,12 +218,12 @@ function Analysis(props) {
 			/>
 			<br/>
 			{currentAnalysis ? (
-				analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart)
+				analysisView(currentAnalysis, setCurrentAnalysis, () => setPreviousStart(start - 1))
 			) : (
 				<JobList
 					items={analysis}
 					item={({ id, title, createdAt }) => (
-						<li key={id} onClick={() => viewAnalysis(id, setCurrentAnalysis)}>
+						<li key={id} onClick={() => viewAnalysis(id, view)}>
 							<hr/>
 							<div>#{id}</div>
 							<div><strong>{title}</strong></div>

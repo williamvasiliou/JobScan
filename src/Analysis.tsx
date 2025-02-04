@@ -1,3 +1,4 @@
+import { unique } from '/src/Keyword'
 import { query } from '/src/Search'
 
 import { fetchCreate, fetchRead, fetchUpdate } from '/src/Fetch'
@@ -24,18 +25,79 @@ export const addAnalysis = async (search, analysis, setAnalysis) => {
 	return false
 }
 
+export const newNoun = ({ labels, jobs }) => ({
+	labels: labels !== 1 ? 'Labels' : 'Label',
+	jobs: jobs !== 1 ? 'Jobs' : 'Job',
+})
+
+export const newValues = (currentAnalysis, jobs) => {
+	const labels = unique(jobs.map(({ labels }) => labels.map(({ id }) => id)).reduce((labels, newLabels) => [
+		...labels,
+		...newLabels,
+	], []).sort())
+
+	const rank = labels.map((id) => ({
+		[id]: jobs.map(({ labels }) => (
+			!!labels.find((label) => label.id === id)
+		)).reduce((rank, newRank) => (
+			rank + newRank
+		), 0),
+	})).reduce((labels, newLabels) => ({
+			...labels,
+			...newLabels,
+	}), {})
+
+	const byLabel = (previous, next) => previous.label > next.label
+	const byRank = (previous, next) => rank[previous.id] < rank[next.id]
+	const analysisLabels = labels.map((id) => ({
+		...currentAnalysis.labels.labels[id],
+		id,
+	})).sort(byLabel).sort(byRank)
+
+	const analysisJobs = jobs.map(({ id, job, labels }) => ({
+		id,
+		job,
+		labels: labels.sort(byLabel).sort(byRank),
+	}))
+
+	const count = {
+		labels: labels.length,
+		jobs: jobs.length,
+	}
+
+	const noun = newNoun(count)
+
+	return {
+		count,
+		noun,
+		values: {
+			labels: analysisLabels,
+			jobs: analysisJobs,
+		},
+		rank,
+	}
+}
+
 export const fromPrisma = (analysis) => {
 	const rank = analysis.jobs.reduce((labels, { analysisLabelId }) => ({
 		...labels,
 		[analysisLabelId]: (labels[analysisLabelId] ?? 0) + 1,
 	}), {})
 
-	const byRank = (previous, next) => rank[previous] < rank[next]
+	const analysisLabels = analysis.labels.labels
+	const byLabel = (previous, next) => previous.label > next.label
+	const byRank = (previous, next) => rank[previous.id] < rank[next.id]
 
-	const labels = Object.keys(analysis.labels.labels).sort(byRank).map((id) => ({
-		id,
-		label: analysis.labels.labels[id],
-	}))
+	const labelsFromPrisma = (labels) => labels
+		.map(Number)
+		.map((id) => ({
+			...analysisLabels[id],
+			id,
+		}))
+		.sort(byLabel)
+		.sort(byRank)
+
+	const labels = labelsFromPrisma(Object.keys(analysisLabels))
 
 	const jobs = Object.entries(analysis.jobs.reduce((jobs, { analysisLabelId, analysisJobId }) => ({
 		...jobs,
@@ -43,46 +105,32 @@ export const fromPrisma = (analysis) => {
 			...(jobs[analysisJobId] ?? []),
 			analysisLabelId,
 		],
-	}), {})).map(([ analysisJobId, labels ]) => [
-		analysisJobId,
-		analysis.labels.jobs[analysisJobId],
-		labels.sort(byRank).map((id) => ({
-			id,
-			label: analysis.labels.labels[id],
-		})),
-	])
+	}), {})).map(([ id, labels ]) => ({
+		id,
+		job: analysis.labels.jobs[id],
+		labels: labelsFromPrisma(labels),
+	}))
 
 	const count = {
 		labels: labels.length,
-		jobs: Object.keys(analysis.labels.jobs).length,
+		jobs: jobs.length,
 	}
+
+	const noun = newNoun(count)
 
 	return {
 		...analysis,
 		newTitle: analysis.title,
 		isEditing: false,
-		count,
-		noun: {
-			labels: count.labels !== 1 ? 'Labels' : 'Label',
-			jobs: count.jobs !== 1 ? 'Jobs' : 'Job',
+		selected: {
+			labels: [],
+			jobs: [],
 		},
+		count,
+		noun,
 		values: {
-			labels: {
-				id: labels.map(({ id }) => id),
-				label: labels.map(({ label }) => label).join(', '),
-			},
-			jobs: {
-				id: jobs.map(([ id, job, labels ]) => [
-					id,
-					job,
-					labels.map(({ id }) => id),
-				]),
-				label: jobs.map(([ id, job, labels ]) => [
-					id,
-					job,
-					labels.map(({ label }) => label).join(', '),
-				]),
-			},
+			labels,
+			jobs,
 		},
 		rank,
 	}
@@ -100,13 +148,18 @@ export const viewAnalysis = async (id, setCurrentAnalysis) => {
 	return false
 }
 
-export const saveAnalysis = async (id, title, setCurrentAnalysis) => {
+export const saveAnalysis = async (id, title, currentAnalysis, setCurrentAnalysis) => {
 	const analysis = await fetchUpdate(`/analysis/${id}`, {
 		title,
 	})
 
 	if (analysis) {
-		setCurrentAnalysis(fromPrisma(analysis))
+		setCurrentAnalysis({
+			...currentAnalysis,
+			title: analysis.title,
+			newTitle: analysis.title,
+			isEditing: false,
+		})
 
 		return true
 	}

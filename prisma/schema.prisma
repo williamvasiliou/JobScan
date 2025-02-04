@@ -14,6 +14,7 @@ model Color {
   id    Int    @id @default(autoincrement())
   color String @unique
 
+  colors AnalysisColor[]
   labels Label[]
 }
 
@@ -78,11 +79,23 @@ model Analysis {
   jobs LabelsOnJobs[]
 }
 
+model AnalysisColor {
+  id         Int     @id @default(autoincrement())
+  color      Color?  @relation(fields: [colorId], references: [id])
+  colorId    Int?
+  colorColor String?
+
+  labels AnalysisLabel[]
+}
+
 model AnalysisLabel {
   id         Int     @id @default(autoincrement())
   label      Label?  @relation(fields: [labelId], references: [id])
   labelId    Int?
   labelLabel String?
+
+  color   AnalysisColor @relation(fields: [colorId], references: [id])
+  colorId Int
 
   jobs LabelsOnJobs[]
 }

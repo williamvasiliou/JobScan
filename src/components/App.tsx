@@ -140,7 +140,7 @@ function App(props) {
 		setAnalysisPreviousStart(analysisStart)
 	}
 
-	const welcome = hasJobs || jobsSearch || jobsStart
+	const welcome = hasJobs || !empty(jobsSearch) || jobsStart
 
 	return (
 		<>
