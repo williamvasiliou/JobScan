@@ -21,15 +21,15 @@ export const list = (items, item) => {
 
 export const Section = {
 	create: (id, header, content) => ({
-		id: id,
+		id,
 		isExpanded: true,
 		action: {
 			type: VIEWING,
 			state: 0,
 		},
-		header: header,
+		header,
 		newHeader: header,
-		content: content,
+		content,
 		newContent: content,
 	}),
 	hydrate: (section, { header, content }) => {
@@ -102,11 +102,11 @@ export const dateTimeFromPrisma = (date) => date ?
 	dateFromPrisma(new Date(date)) :
 	noDateFromPrisma()
 
-export const fromPrisma = ({ id, title, url, createdAt, updatedAt, published, sections }) => ({
-	id: id,
-	title: title,
+export const fromPrisma = ({ id, title, url, createdAt, updatedAt, published, sections, previous, next }) => ({
+	id,
+	title,
 	newTitle: title,
-	url: url,
+	url,
 	newUrl: url,
 	isEditing: false,
 	isDateExpanded: false,
@@ -115,9 +115,17 @@ export const fromPrisma = ({ id, title, url, createdAt, updatedAt, published, se
 	updatedAt: new Date(updatedAt),
 	published: dateTimeFromPrisma(published),
 	sections: linked(sections.map(Section.fromPrisma)),
+	previous,
+	next,
 })
 
 export const toPrisma = ({ title, url }) => ({
-	title: title,
-	url: url,
+	title,
+	url,
 })
+
+export const iso = (date) => date ? list(new Date(date).toISOString().replace('T', 'T\n').split('\n'), (key, item) => (
+	<div key={key}>{item}</div>
+)) : []
+
+export const utc = (date) => date ? new Date(date).toUTCString() : ''

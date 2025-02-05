@@ -1,7 +1,67 @@
-import { unique } from '/src/Keyword'
-import { query } from '/src/Search'
+import { iso, utc } from './Content'
+import { LIST } from './Job'
+import { unique } from './Keyword'
+import { query } from './Search'
 
-import { fetchCreate, fetchRead, fetchUpdate } from '/src/Fetch'
+import { fetchCreate, fetchRead, fetchUpdate, fetchDelete } from '/src/Fetch'
+
+export const ITEM = {
+	id: 0,
+	action: 'Compact',
+	[LIST]: true,
+	item: (view, remove) => (
+		({ id, title, createdAt }) => (
+			<li key={id}>
+				<div onClick={() => view(id)}>
+					<hr/>
+					<div>#{id}</div>
+					<div><strong>{title}</strong></div>
+					<div>{utc(createdAt)}</div>
+				</div>
+				<button onClick={() => remove(id)}>Delete</button>
+				<br/>
+				<br/>
+			</li>
+		)
+	),
+}
+
+export const ACTIONS = [
+	ITEM,
+	{
+		id: 1,
+		action: 'Detailed',
+		[LIST]: false,
+		header: (
+			<thead>
+				<tr>
+					<td>Delete</td>
+					<td>Analysis</td>
+					<td>Title</td>
+					<td>Created At</td>
+				</tr>
+			</thead>
+		),
+		item: (view, remove) => (
+			({ id, title, createdAt }) => (
+				<tr key={id}>
+					<td>
+						<button onClick={() => remove(id)}>Delete</button>
+					</td>
+					<td onClick={() => view(id)}>
+						#{id}
+					</td>
+					<td onClick={() => view(id)}>
+						<strong>{title}</strong>
+					</td>
+					<td onClick={() => view(id)}>
+						{iso(createdAt)}
+					</td>
+				</tr>
+			)
+		),
+	},
+]
 
 export const addAnalysis = async (search, analysis, setAnalysis) => {
 	const newAnalysis = await fetchCreate('/analysis', query(search).reduce((items, item) => {
@@ -160,6 +220,18 @@ export const saveAnalysis = async (id, title, currentAnalysis, setCurrentAnalysi
 			newTitle: analysis.title,
 			isEditing: false,
 		})
+
+		return true
+	}
+
+	return false
+}
+
+export const deleteAnalysis = async (id, setPreviousStart) => {
+	const analysis = await fetchDelete(`/analysis/${id}`)
+
+	if (analysis) {
+		setPreviousStart()
 
 		return true
 	}

@@ -252,4 +252,8 @@ export function middleware(app, prisma) {
 			)
 		))
 	})
+
+	app.delete('/analysis/:id', async (req, res) => {
+		await prismaQuery(res, async () => await prisma.analysis.delete(Number(req.params.id)))
+	})
 }

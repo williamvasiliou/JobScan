@@ -6,9 +6,9 @@ import Keywords from './Keywords'
 import { addKeyword } from '/src/Keyword'
 import KeywordAdd from '/src/forms/KeywordAdd'
 
-import { addAnalysis } from '/src/Analysis'
+import { ITEM as ANALYSIS, addAnalysis } from '/src/Analysis'
 
-import { ADD, LIST } from '/src/Job'
+import { ADD, LIST, ITEM as JOBS } from '/src/Job'
 import { reset, empty, query as searchQuery } from '/src/Search'
 
 import { fetchRead } from '/src/Fetch'
@@ -23,6 +23,8 @@ function App(props) {
 
 	const [jobsSearch, setJobsSearch] = useState(reset)
 	const [jobsNewSearch, setJobsNewSearch] = useState(reset)
+
+	const [jobsCurrentItem, setJobsCurrentItem] = useState(JOBS)
 
 	const [jobsAfter, setJobsAfter] = useState(true)
 	const [jobsPreviousStart, setJobsPreviousStart] = useState(0)
@@ -112,6 +114,8 @@ function App(props) {
 	const [analysisSearch, setAnalysisSearch] = useState(reset)
 	const [analysisNewSearch, setAnalysisNewSearch] = useState(reset)
 
+	const [analysisCurrentItem, setAnalysisCurrentItem] = useState(ANALYSIS)
+
 	const [analysisAfter, setAnalysisAfter] = useState(true)
 	const [analysisPreviousStart, setAnalysisPreviousStart] = useState(0)
 	const [analysisStart, setAnalysisStart] = useState(0)
@@ -168,6 +172,8 @@ function App(props) {
 					setSearch={setJobsSearch}
 					newSearch={jobsNewSearch}
 					setNewSearch={setJobsNewSearch}
+					currentItem={jobsCurrentItem}
+					setCurrentItem={setJobsCurrentItem}
 					isStartAfter={jobsAfter}
 					setStartAfter={setJobsAfter}
 					previousStart={jobsPreviousStart}
@@ -187,6 +193,8 @@ function App(props) {
 					setAnalysisSearch={setAnalysisSearch}
 					analysisNewSearch={analysisNewSearch}
 					setAnalysisNewSearch={setAnalysisNewSearch}
+					analysisCurrentItem={analysisCurrentItem}
+					setAnalysisCurrentItem={setAnalysisCurrentItem}
 					setAnalysisStartAfter={setAnalysisAfter}
 					setAnalysisPreviousStart={setAnalysisPreviousStart}
 					analysisStart={analysisStart}
