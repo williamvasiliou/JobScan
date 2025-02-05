@@ -2,11 +2,12 @@ import JobsActions from './JobsActions'
 import JobAdd from '/src/forms/JobAdd'
 import SearchEdit from '/src/forms/SearchEdit'
 import JobList from './JobList'
+import JobListActions from './JobListActions'
 import Job from './Job'
 import Analysis from './Analysis'
 
 import { newTitle, newContent, fromPrisma, toPrisma } from '/src/Content'
-import { ADD, VIEW, ANALYSIS } from '/src/Job'
+import { ADD, VIEW, ANALYSIS, ACTIONS } from '/src/Job'
 
 import { fetchCreate, fetchRead, fetchUpdate, jobTake } from '/src/Fetch'
 
@@ -15,6 +16,7 @@ function Jobs(props) {
 
 	if (mode === ANALYSIS) {
 		const {
+			analysisCurrentItem, setAnalysisCurrentItem,
 			setAnalysisStartAfter,
 			setAnalysisPreviousStart,
 			analysisStart, setAnalysisStart,
@@ -25,6 +27,8 @@ function Jobs(props) {
 			<Analysis
 				analysis={analysis}
 				setMode={setMode}
+				currentItem={analysisCurrentItem}
+				setCurrentItem={setAnalysisCurrentItem}
 				setStartAfter={setAnalysisStartAfter}
 				setPreviousStart={setAnalysisPreviousStart}
 				start={analysisStart}
@@ -39,6 +43,7 @@ function Jobs(props) {
 		welcome, jobs,
 		search, setSearch,
 		newSearch, setNewSearch,
+		currentItem, setCurrentItem,
 		isStartAfter, setStartAfter,
 		setPreviousStart,
 		start, setStart,
@@ -73,16 +78,18 @@ function Jobs(props) {
 	}
 
 	async function viewJob(id) {
-		if (currentJob) {
-			return
-		}
-
 		const job = await fetchRead(`/jobs/${id}`)
 
 		if (job) {
+			const currentJob = fromPrisma(job)
+
 			setMode(VIEW)
-			setCurrentJob(fromPrisma(job))
+			setCurrentJob(currentJob)
+
+			return currentJob
 		}
+
+		return false
 	}
 
 	async function editJob(id) {
@@ -140,24 +147,10 @@ function Jobs(props) {
 		() => (
 			<JobList
 				items={jobs}
-				item={({ id, title, url }) => (
-					<li key={id}>
-						<div onClick={() => viewJob(id)}>
-							<hr/>
-							<div>#{id}</div>
-							<strong>{title}</strong>
-						</div>
-						{url ?
-							<a href={url} target='_blank'>{url}</a>
-						:
-							<button onClick={() => editJob(id)}>
-								<em>Click to add URL</em>
-							</button>
-						}
-						<br/>
-						<br/>
-					</li>
-				)}
+				item={{
+					...currentItem,
+					item: currentItem.item(viewJob, editJob),
+				}}
 				itemTake={jobTake}
 				search={
 					<SearchEdit
@@ -173,6 +166,12 @@ function Jobs(props) {
 						addAnalysis={addAnalysis}
 					/>
 				}
+				actions={
+					<JobListActions
+						actions={ACTIONS}
+						setCurrentItem={setCurrentItem}
+					/>
+				}
 				setStartAfter={setStartAfter}
 				start={start}
 				setStart={setStart}
@@ -183,6 +182,7 @@ function Jobs(props) {
 				job={currentJob}
 				updateJob={updateJob}
 				saveJob={saveJob}
+				viewJob={viewJob}
 				colors={colors}
 				setColors={setColors}
 				highlights={highlights}

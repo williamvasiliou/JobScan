@@ -5,6 +5,7 @@ import JobEdit from '/src/forms/JobEdit'
 import JobHead from './JobHead'
 import Section from './Section'
 import JobDate from './JobDate'
+import JobMore from './JobMore'
 
 import * as Content from '/src/Content'
 import * as List from '/src/List'
@@ -17,6 +18,7 @@ import { fetchCreate, fetchUpdate, fetchDelete } from '/src/Fetch'
 function Job(props) {
 	const {
 		job, updateJob,
+		saveJob, viewJob,
 		colors, setColors,
 		highlights, setHighlights,
 	} = props
@@ -25,6 +27,7 @@ function Job(props) {
 		title, newTitle,
 		url, newUrl,
 		isEditing,
+		previous, next,
 	} = job
 
 	const [sections, setSections] = useState(job.sections)
@@ -64,6 +67,12 @@ function Job(props) {
 			section[prop] = value
 			return {...sections}
 		}
+	}
+
+	async function view(id) {
+		const job = await viewJob(id)
+
+		setSections(job.sections)
 	}
 
 	function updateSection(section, update) {
@@ -239,7 +248,7 @@ function Job(props) {
 					onChangeTitle={(e) => updateJob(updateProp('newTitle', e.target.value))}
 					newUrl={newUrl}
 					onChangeUrl={(e) => updateJob(updateProp('newUrl', e.target.value))}
-					onSubmit={() => props.saveJob(finishEditingTitleUrl())}
+					onSubmit={() => saveJob(finishEditingTitleUrl())}
 				/>
 			) : (
 				<JobHead
@@ -266,6 +275,11 @@ function Job(props) {
 				job={job}
 				updateJob={updateJob}
 				updateProp={updateProp}
+			/>
+			<JobMore
+				view={view}
+				previous={previous}
+				next={next}
 			/>
 		</>
 	)

@@ -193,10 +193,46 @@ const jobSearchDateWhere = (start, end, bits) => {
 }
 
 export const job = {
-	findUnique: async (id) => await prisma.job.findUniqueOrThrow({
-		where: { id },
-		select: jobSelect,
-	}),
+	findUnique: async (id) => {
+		const job = await prisma.job.findUniqueOrThrow({
+			where: { id },
+			select: jobSelect,
+		})
+
+		const previous = await prisma.job.findFirst({
+			where: {
+				id: {
+					lt: id,
+				},
+			},
+			orderBy: {
+				id: 'desc',
+			},
+			select: {
+				id: true,
+			},
+		})
+
+		const next = await prisma.job.findFirst({
+			where: {
+				id: {
+					gt: id,
+				},
+			},
+			orderBy: {
+				id: 'asc',
+			},
+			select: {
+				id: true,
+			},
+		})
+
+		return {
+			...job,
+			previous,
+			next,
+		}
+	},
 	findManyWhereOrderById: async (where, id) => await prisma.job.findMany({
 		where: where,
 		orderBy: { id },
@@ -645,6 +681,11 @@ export const prismaColor = {
 			const labels = await prisma.label.findMany({
 				where: {
 					colorId: id,
+					labels: {
+						some: {
+							labelLabel: null,
+						},
+					},
 				},
 				select: {
 					id: true,
@@ -710,26 +751,6 @@ const prismaLabel = {
 			select: {
 				colorId: true,
 			},
-		})
-	},
-	updateManyColor: async (id, colorId) => {
-		const labels = await prisma.label.findMany({
-			where: {
-				colorId: id,
-			},
-			select: {
-				id: true,
-				label: true,
-			},
-		})
-
-		await analysis.updateManyLabel(labels)
-
-		await prisma.label.updateMany({
-			where: {
-				colorId: id,
-			},
-			data: { colorId },
 		})
 	},
 	delete: async (id) => {
@@ -949,7 +970,12 @@ export const highlight = {
 				if (id === colorId) {
 					return newColor
 				} else {
-					await prismaLabel.updateManyColor(id, colorId)
+					await prisma.label.updateMany({
+						where: {
+							colorId: id,
+						},
+						data: { colorId },
+					})
 
 					await analysis.deleteColor(id)
 
@@ -1551,6 +1577,34 @@ export const analysis = {
 			[id]: job.title,
 		}), {})
 
+		const previous = await prisma.analysis.findFirst({
+			where: {
+				id: {
+					lt: id,
+				},
+			},
+			orderBy: {
+				id: 'desc',
+			},
+			select: {
+				id: true,
+			},
+		})
+
+		const next = await prisma.analysis.findFirst({
+			where: {
+				id: {
+					gt: id,
+				},
+			},
+			orderBy: {
+				id: 'asc',
+			},
+			select: {
+				id: true,
+			},
+		})
+
 		return {
 			...analysis,
 			labels: {
@@ -1564,6 +1618,8 @@ export const analysis = {
 					...jobs,
 				},
 			},
+			previous,
+			next,
 		}
 	},
 	findManyStart: async (after, id) => (id > 0 ? (after ? (
@@ -1739,6 +1795,103 @@ export const analysis = {
 			data: {
 				labelId: null,
 			},
+		})
+	},
+	delete: async (id) => {
+		const analysis = await prisma.analysis.findUniqueOrThrow({
+			where: { id },
+			select: {
+				jobs: {
+					select: {
+						analysisLabelId: true,
+						analysisJobId: true,
+					},
+				},
+			},
+		})
+
+		await prisma.labelsOnJobs.deleteMany({
+			where: {
+				analysisId: id,
+			},
+		})
+
+		const analysisLabelId = unique(analysis.jobs.map(({ analysisLabelId }) => analysisLabelId).sort())
+
+		const labels = (await prisma.analysisLabel.findMany({
+			where: {
+				id: {
+					in: analysisLabelId,
+				},
+			},
+			select: {
+				id: true,
+				colorId: true,
+			},
+		})).reduce((labels, { id, colorId }) => ({
+			...labels,
+			[id]: colorId,
+		}), {})
+
+		const colors = Object.values(labels).reduce((colors, colorId) => ({
+			...colors,
+			[colorId]: false,
+		}), {})
+
+		await Promise.all(analysisLabelId.map(async (id) => {
+			if (!await prisma.labelsOnJobs.count({
+				where: {
+					analysisLabelId: id,
+				},
+				take: 1,
+			})) {
+				await prisma.analysisLabel.delete({
+					where: { id },
+				})
+
+				colors[labels[id]] = true
+			}
+		}))
+
+		const analysisColorId = Object.entries(colors)
+			.map(([ colorId, deleted ]) => ({
+				colorId,
+				deleted,
+			}))
+			.filter(({ deleted }) => deleted)
+			.map(({ colorId }) => Number(colorId))
+
+		await Promise.all(analysisColorId.map(async (id) => {
+			if (!await prisma.analysisLabel.count({
+				where: {
+					colorId: id,
+				},
+				take: 1,
+			})) {
+				await prisma.analysisColor.delete({
+					where: { id },
+				})
+			}
+		}))
+
+		const analysisJobId = unique(analysis.jobs.map(({ analysisJobId }) => analysisJobId).sort())
+
+		await Promise.all(analysisJobId.map(async (id) => {
+			if (!await prisma.labelsOnJobs.count({
+				where: {
+					analysisJobId: id,
+				},
+				take: 1,
+			})) {
+				await prisma.analysisJob.delete({
+					where: { id },
+				})
+			}
+		}))
+
+		return await prisma.analysis.delete({
+			where: { id },
+			select: analysisSelect,
 		})
 	},
 }

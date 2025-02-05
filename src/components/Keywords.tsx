@@ -140,6 +140,15 @@ function Keywords(props) {
 					<br/>
 					<br/>
 					<table>
+						<thead>
+							<tr>
+								<td>Delete</td>
+								<td>Edit</td>
+								<td>Color</td>
+								<td>Label</td>
+								<td>Keywords</td>
+							</tr>
+						</thead>
 						<tbody>
 							{keywords}
 						</tbody>

@@ -80,6 +80,10 @@ tr:nth-child(2n + 1) {
 	background: #136;
 }
 
+thead {
+	border-bottom: 1px solid rgba(255, 255, 255, 0.87);
+}
+
 @media (prefers-color-scheme: light) {
 	:root {
 		color: #213547;
@@ -98,6 +102,9 @@ tr:nth-child(2n + 1) {
 	tr:nth-child(2n + 1) {
 		background: #def;
 	}
+	thead {
+		border-bottom: 1px solid #213547;
+	}
 }
 
 #root {
@@ -113,6 +120,10 @@ ol {
 
 table {
 	border-collapse: collapse;
+}
+
+thead {
+	font-weight: bold;
 }
 
 td {

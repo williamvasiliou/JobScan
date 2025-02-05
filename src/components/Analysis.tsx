@@ -2,8 +2,10 @@ import AnalysisActions from './AnalysisActions'
 import AnalysisLabels from './AnalysisLabels'
 import AnalysisJobs from './AnalysisJobs'
 import JobList from './JobList'
+import JobListActions from './JobListActions'
+import JobMore from './JobMore'
 
-import { viewAnalysis, saveAnalysis } from '/src/Analysis'
+import { ACTIONS, viewAnalysis, saveAnalysis, deleteAnalysis } from '/src/Analysis'
 import { DATE, checkboxes as searchCheckboxes, dates } from '/src/Search'
 
 import { analysisTake } from '/src/Fetch'
@@ -85,7 +87,7 @@ function description(id, bits, search, start, end) {
 	}
 }
 
-function analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart) {
+function analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart, view) {
 	const {
 		id,
 		title, newTitle,
@@ -179,6 +181,11 @@ function analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart) 
 				currentAnalysis={currentAnalysis}
 				setCurrentAnalysis={setCurrentAnalysis}
 			/>
+			<JobMore
+				view={view}
+				previous={currentAnalysis.previous}
+				next={currentAnalysis.next}
+			/>
 		</>
 	)
 }
@@ -187,13 +194,14 @@ function Analysis(props) {
 	const {
 		analysis,
 		setMode,
+		currentItem, setCurrentItem,
 		setStartAfter,
 		setPreviousStart,
 		start, setStart,
 		currentAnalysis, setCurrentAnalysis,
 	} = props
 
-	function view(analysis) {
+	function style(analysis) {
 		setCurrentAnalysis({
 			...analysis,
 			style: Object.entries(analysis.labels.colors).map(([ colorId, color ]) => (
@@ -209,6 +217,18 @@ function Analysis(props) {
 		})
 	}
 
+	function updatePreviousStart() {
+		setPreviousStart(start - 1)
+	}
+
+	function view(id) {
+		viewAnalysis(id, style)
+	}
+
+	function remove(id) {
+		deleteAnalysis(id, updatePreviousStart)
+	}
+
 	return (
 		<>
 			<AnalysisActions
@@ -218,20 +238,22 @@ function Analysis(props) {
 			/>
 			<br/>
 			{currentAnalysis ? (
-				analysisView(currentAnalysis, setCurrentAnalysis, () => setPreviousStart(start - 1))
+				analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart, view)
 			) : (
 				<JobList
 					items={analysis}
-					item={({ id, title, createdAt }) => (
-						<li key={id} onClick={() => viewAnalysis(id, view)}>
-							<hr/>
-							<div>#{id}</div>
-							<div><strong>{title}</strong></div>
-							<div>{createdAt}</div>
-						</li>
-					)}
+					item={{
+						...currentItem,
+						item: currentItem.item(view, remove),
+					}}
 					itemTake={analysisTake}
 					search={undefined}
+					actions={
+						<JobListActions
+							actions={ACTIONS}
+							setCurrentItem={setCurrentItem}
+						/>
+					}
 					setStartAfter={setStartAfter}
 					start={start}
 					setStart={setStart}
