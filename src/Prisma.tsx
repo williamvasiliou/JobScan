@@ -1124,7 +1124,12 @@ const analysisLabelsIdReduce = (labels, newLabels) => [
 	...newLabels,
 ]
 
-const analysisCreateLabels = async (jobsId) => {
+const analysisJobsReduce = (jobs, { id, jobId }) => ({
+	...jobs,
+	[jobId]: id,
+})
+
+const analysisCreateLabelsOnJobs = async (analysisId, jobsId) => {
 	const sections = await prisma.section.findMany({
 		where: {
 			jobId: {
@@ -1260,23 +1265,6 @@ const analysisCreateLabels = async (jobsId) => {
 		},
 	})
 
-	return {
-		labels: {
-			...analysisLabels.reduce(analysisLabelsReduce, {}),
-			...newAnalysisLabels.reduce(analysisLabelsReduce, {}),
-		},
-		jobs: labelsOnJobs,
-	}
-}
-
-const analysisJobsReduce = (jobs, { id, jobId }) => ({
-	...jobs,
-	[jobId]: id,
-})
-
-const analysisCreateLabelsOnJobs = async (analysisId, jobs) => {
-	const jobsId = jobs.map(({ id }) => id)
-
 	const analysisJobs = await prisma.analysisJob.findMany({
 		where: {
 			title: null,
@@ -1301,27 +1289,67 @@ const analysisCreateLabelsOnJobs = async (analysisId, jobs) => {
 		},
 	})
 
-	const labelsOnJobs = {
-		labels: await analysisCreateLabels(jobsId),
+	const jobs = {
+		labels: {
+			...analysisLabels.reduce(analysisLabelsReduce, {}),
+			...newAnalysisLabels.reduce(analysisLabelsReduce, {}),
+		},
 		jobs: {
 			...analysisJobs.reduce(analysisJobsReduce, {}),
 			...newAnalysisJobs.reduce(analysisJobsReduce, {}),
 		},
 	}
 
-	const analysisLabelsOnJobs = labelsOnJobs.labels.jobs.map(({ jobId, labels }) => (
+	const analysisLabelsOnJobsId = labelsOnJobs.map(({ jobId, labels }) => (
 		labels.map((id) => [
-			labelsOnJobs.labels.labels[id],
-			labelsOnJobs.jobs[jobId],
+			jobs.labels[id],
+			jobs.jobs[jobId],
 		])
-	)).reduce(analysisLabelsIdReduce, []).map(([ analysisLabelId, analysisJobId ]) => ({
-		analysisId,
+	)).reduce(analysisLabelsIdReduce, [])
+
+	const analysisLabelsOnJobs = await prisma.labelsOnJobs.findMany({
+		where: {
+			OR: analysisLabelsOnJobsId.map(([ analysisLabelId, analysisJobId ]) => ({
+				analysisLabelId,
+				analysisJobId,
+			})),
+		},
+		select: {
+			id: true,
+			analysisLabelId: true,
+			analysisJobId: true,
+		},
+	})
+
+	const newAnalysisLabelsOnJobs = analysisLabelsOnJobsId.filter(([ labelId, jobId ]) => (
+		!analysisLabelsOnJobs.find(({ analysisLabelId, analysisJobId }) => analysisLabelId === labelId && analysisJobId === jobId)
+	)).map(([ analysisLabelId, analysisJobId ]) => ({
 		analysisLabelId,
 		analysisJobId,
 	}))
 
-	await prisma.labelsOnJobs.createMany({
-		data: analysisLabelsOnJobs,
+	const newLabelsOnAnalysis = await prisma.labelsOnJobs.createManyAndReturn({
+		data: newAnalysisLabelsOnJobs,
+		select: {
+			id: true,
+		},
+	})
+
+	await prisma.labelsOnAnalysis.createMany({
+		data: [
+			...analysisLabelsOnJobs,
+			...newLabelsOnAnalysis,
+		].map(({ id }) => ({
+			analysisId,
+			analysisLabelId: id,
+		})),
+	})
+
+	await prisma.jobsOnAnalysis.createMany({
+		data: labelsOnJobs.filter(({ labels }) => !labels.length).map(({ jobId }) => ({
+			analysisId,
+			analysisJobId: jobs.jobs[jobId],
+		})),
 	})
 }
 
@@ -1337,7 +1365,7 @@ const analysisCreate = async (jobs, search, filter, start, end) => {
 		select: analysisSelect,
 	})
 
-	await analysisCreateLabelsOnJobs(analysis.id, jobs)
+	await analysisCreateLabelsOnJobs(analysis.id, jobs.map(({ id }) => id))
 
 	return analysis
 }
@@ -1437,14 +1465,33 @@ export const analysis = {
 				end: true,
 				jobs: {
 					select: {
-						analysisLabelId: true,
 						analysisJobId: true,
+					},
+				},
+				labels: {
+					select: {
+						analysisLabel: {
+							select: {
+								analysisLabelId: true,
+								analysisJobId: true,
+							},
+						},
 					},
 				},
 			},
 		})
 
-		const analysisLabelId = unique(analysis.jobs.map(({ analysisLabelId }) => analysisLabelId).sort())
+		const analysisLabelsOnJobsId = analysis.labels.map(({ analysisLabel }) => analysisLabel)
+
+		const analysisLabelsOnJobs = analysisLabelsOnJobsId.reduce((jobs, { analysisLabelId, analysisJobId }) => ({
+			...jobs,
+			[analysisJobId]: [
+				...(jobs[analysisJobId] ?? []),
+				analysisLabelId,
+			],
+		}), {})
+
+		const analysisLabelId = unique(analysisLabelsOnJobsId.map(({ analysisLabelId }) => analysisLabelId).sort())
 
 		const updatedLabels = (await prisma.analysisLabel.findMany({
 			where: {
@@ -1537,7 +1584,10 @@ export const analysis = {
 			[id]: color.color,
 		}), {})
 
-		const analysisJobId = unique(analysis.jobs.map(({ analysisJobId }) => analysisJobId).sort())
+		const analysisJobId = unique([
+			...analysis.jobs.map(({ analysisJobId }) => analysisJobId),
+			...analysisLabelsOnJobsId.map(({ analysisJobId }) => analysisJobId),
+		].sort())
 
 		const updatedJobs = (await prisma.analysisJob.findMany({
 			where: {
@@ -1607,6 +1657,13 @@ export const analysis = {
 
 		return {
 			...analysis,
+			jobs: {
+				...analysis.jobs.reduce((jobs, { analysisJobId }) => ({
+					...jobs,
+					[analysisJobId]: [],
+				}), {}),
+				...analysisLabelsOnJobs,
+			},
 			labels: {
 				colors: {
 					...updatedColors,
@@ -1803,20 +1860,51 @@ export const analysis = {
 			select: {
 				jobs: {
 					select: {
-						analysisLabelId: true,
 						analysisJobId: true,
+					},
+				},
+				labels: {
+					select: {
+						analysisLabel: {
+							select: {
+								id: true,
+								analysisLabelId: true,
+								analysisJobId: true,
+							},
+						},
 					},
 				},
 			},
 		})
 
-		await prisma.labelsOnJobs.deleteMany({
+		await prisma.jobsOnAnalysis.deleteMany({
 			where: {
 				analysisId: id,
 			},
 		})
 
-		const analysisLabelId = unique(analysis.jobs.map(({ analysisLabelId }) => analysisLabelId).sort())
+		await prisma.labelsOnAnalysis.deleteMany({
+			where: {
+				analysisId: id,
+			},
+		})
+
+		const analysisLabelsOnJobsId = analysis.labels.map(({ analysisLabel }) => analysisLabel)
+
+		await Promise.all(analysisLabelsOnJobsId.map(async ({ id }) => {
+			if (!await prisma.labelsOnAnalysis.count({
+				where: {
+					analysisLabelId: id,
+				},
+				take: 1,
+			})) {
+				await prisma.labelsOnJobs.delete({
+					where: { id },
+				})
+			}
+		}))
+
+		const analysisLabelId = unique(analysisLabelsOnJobsId.map(({ analysisLabelId }) => analysisLabelId).sort())
 
 		const labels = (await prisma.analysisLabel.findMany({
 			where: {
@@ -1874,10 +1962,18 @@ export const analysis = {
 			}
 		}))
 
-		const analysisJobId = unique(analysis.jobs.map(({ analysisJobId }) => analysisJobId).sort())
+		const analysisJobId = unique([
+			...analysis.jobs.map(({ analysisJobId }) => analysisJobId),
+			...analysisLabelsOnJobsId.map(({ analysisJobId }) => analysisJobId),
+		].sort())
 
 		await Promise.all(analysisJobId.map(async (id) => {
-			if (!await prisma.labelsOnJobs.count({
+			if (!await prisma.jobsOnAnalysis.count({
+				where: {
+					analysisJobId: id,
+				},
+				take: 1,
+			}) && !await prisma.labelsOnJobs.count({
 				where: {
 					analysisJobId: id,
 				},
