@@ -85,6 +85,9 @@ export const addAnalysis = async (search, analysis, setAnalysis) => {
 	return false
 }
 
+export const byLabel = (previous, next) => previous.label > next.label
+export const byJob = (previous, next) => previous.job > next.job
+
 export const newNoun = ({ labels, jobs }) => ({
 	labels: labels !== 1 ? 'Labels' : 'Label',
 	jobs: jobs !== 1 ? 'Jobs' : 'Job',
@@ -107,18 +110,20 @@ export const newValues = (currentAnalysis, jobs) => {
 			...newLabels,
 	}), {})
 
-	const byLabel = (previous, next) => previous.label > next.label
 	const byRank = (previous, next) => rank[previous.id] < rank[next.id]
 	const analysisLabels = labels.map((id) => ({
 		...currentAnalysis.labels.labels[id],
 		id,
 	})).sort(byLabel).sort(byRank)
 
+	const rankLabels = (labels, { id }) => labels + rank[id]
+	const byJobRank = (previous, next) => previous.labels.reduce(rankLabels, 0) < next.labels.reduce(rankLabels, 0)
+
 	const analysisJobs = jobs.map(({ id, job, labels }) => ({
 		id,
 		job,
 		labels: labels.sort(byLabel).sort(byRank),
-	}))
+	})).sort(byJob).sort(byJobRank)
 
 	const count = {
 		labels: labels.length,
@@ -139,13 +144,15 @@ export const newValues = (currentAnalysis, jobs) => {
 }
 
 export const fromPrisma = (analysis) => {
-	const rank = analysis.jobs.reduce((labels, { analysisLabelId }) => ({
+	const rank = Object.values(analysis.jobs).reduce((labels, newLabels) => [
 		...labels,
-		[analysisLabelId]: (labels[analysisLabelId] ?? 0) + 1,
+		...newLabels,
+	], []).reduce((labels, id) => ({
+		...labels,
+		[id]: (labels[id] ?? 0) + 1,
 	}), {})
 
 	const analysisLabels = analysis.labels.labels
-	const byLabel = (previous, next) => previous.label > next.label
 	const byRank = (previous, next) => rank[previous.id] < rank[next.id]
 
 	const labelsFromPrisma = (labels) => labels
@@ -159,17 +166,14 @@ export const fromPrisma = (analysis) => {
 
 	const labels = labelsFromPrisma(Object.keys(analysisLabels))
 
-	const jobs = Object.entries(analysis.jobs.reduce((jobs, { analysisLabelId, analysisJobId }) => ({
-		...jobs,
-		[analysisJobId]: [
-			...(jobs[analysisJobId] ?? []),
-			analysisLabelId,
-		],
-	}), {})).map(([ id, labels ]) => ({
+	const rankLabels = (labels, { id }) => labels + rank[id]
+	const byJobRank = (previous, next) => previous.labels.reduce(rankLabels, 0) < next.labels.reduce(rankLabels, 0)
+
+	const jobs = Object.entries(analysis.jobs).map(([ id, labels ]) => ({
 		id,
 		job: analysis.labels.jobs[id],
 		labels: labelsFromPrisma(labels),
-	}))
+	})).sort(byJob).sort(byJobRank)
 
 	const count = {
 		labels: labels.length,

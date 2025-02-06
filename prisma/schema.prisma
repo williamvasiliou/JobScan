@@ -76,7 +76,28 @@ model Analysis {
   start  DateTime
   end    DateTime
 
-  jobs LabelsOnJobs[]
+  jobs   JobsOnAnalysis[]
+  labels LabelsOnAnalysis[]
+}
+
+model JobsOnAnalysis {
+  analysis   Analysis @relation(fields: [analysisId], references: [id])
+  analysisId Int
+
+  analysisJob   AnalysisJob @relation(fields: [analysisJobId], references: [id])
+  analysisJobId Int
+
+  @@id([analysisId, analysisJobId])
+}
+
+model LabelsOnAnalysis {
+  analysis   Analysis @relation(fields: [analysisId], references: [id])
+  analysisId Int
+
+  analysisLabel   LabelsOnJobs @relation(fields: [analysisLabelId], references: [id])
+  analysisLabelId Int
+
+  @@id([analysisId, analysisLabelId])
 }
 
 model AnalysisColor {
@@ -112,12 +133,12 @@ model AnalysisJob {
   job   Job? @relation(fields: [jobId], references: [id])
   jobId Int?
 
-  labels LabelsOnJobs[]
+  analysis JobsOnAnalysis[]
+  labels   LabelsOnJobs[]
 }
 
 model LabelsOnJobs {
-  analysis   Analysis @relation(fields: [analysisId], references: [id])
-  analysisId Int
+  id Int @id @default(autoincrement())
 
   analysisLabel   AnalysisLabel @relation(fields: [analysisLabelId], references: [id])
   analysisLabelId Int
@@ -125,5 +146,7 @@ model LabelsOnJobs {
   analysisJob   AnalysisJob @relation(fields: [analysisJobId], references: [id])
   analysisJobId Int
 
-  @@id([analysisId, analysisLabelId, analysisJobId])
+  analysis LabelsOnAnalysis[]
+
+  @@unique([analysisLabelId, analysisJobId])
 }
