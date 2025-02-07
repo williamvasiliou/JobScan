@@ -49,7 +49,7 @@ function AnalysisLabels({ labels, jobId, currentAnalysis, setCurrentAnalysis }) 
 		return (
 			<button
 				key={id}
-				className={`analysis label ${selected ? 'selected' : ''} color-${colorId}`}
+				className={`analysis previous label ${selected ? 'selected' : ''} color-${colorId}`}
 				onClick={() => selected ? remove(id) : select(id)}
 			>
 				{label} ({(100.0 * currentAnalysis.rank[id] / Math.max(1, currentAnalysis.count.jobs)).toFixed(2)}%)

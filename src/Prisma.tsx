@@ -1451,6 +1451,184 @@ const analysisCreateAdvanced = async (search, start, end, bits) => {
 	}
 }
 
+const analysisFindManyLabel = async (id) => ({
+	...((await prisma.analysisLabel.findMany({
+		where: {
+			id: {
+				in: id,
+			},
+			labelId: null,
+		},
+		select: {
+			id: true,
+			labelLabel: true,
+			colorId: true,
+		},
+	})).reduce((labels, { id, labelLabel, colorId }) => ({
+		...labels,
+		[id]: {
+			previous: labelLabel,
+			next: null,
+			label: labelLabel,
+			colorId,
+		},
+	}), {})),
+	...((await prisma.analysisLabel.findMany({
+		where: {
+			id: {
+				in: id,
+			},
+			labelId: {
+				not: null,
+			},
+		},
+		select: {
+			id: true,
+			label: {
+				select: {
+					label: true,
+				},
+			},
+			labelLabel: true,
+			colorId: true,
+		},
+	})).reduce((labels, { id, label, labelLabel, colorId }) => ({
+		...labels,
+		[id]: {
+			previous: labelLabel,
+			next: label.label,
+			label: labelLabel ?? label.label,
+			colorId,
+		},
+	}), {})),
+})
+
+const analysisFindManyColor = async (id) => ({
+	...((await prisma.analysisColor.findMany({
+		where: {
+			id: {
+				in: id,
+			},
+			colorId: null,
+		},
+		select: {
+			id: true,
+			colorColor: true,
+		},
+	})).reduce((colors, { id, colorColor }) => ({
+		...colors,
+		[id]: {
+			previous: colorColor,
+			next: null,
+		},
+	}), {})),
+	...((await prisma.analysisColor.findMany({
+		where: {
+			id: {
+				in: id,
+			},
+			colorId: {
+				not: null,
+			},
+		},
+		select: {
+			id: true,
+			color: {
+				select: {
+					color: true,
+				},
+			},
+			colorColor: true,
+		},
+	})).reduce((colors, { id, color, colorColor }) => ({
+		...colors,
+		[id]: {
+			previous: colorColor,
+			next: color.color,
+		},
+	}), {})),
+})
+
+const analysisFindManyJob = async (id) => ({
+	...((await prisma.analysisJob.findMany({
+		where: {
+			id: {
+				in: id,
+			},
+			jobId: null,
+		},
+		select: {
+			id: true,
+			title: true,
+			url: true,
+			createdAt: true,
+			updatedAt: true,
+			published: true,
+		},
+	})).reduce((jobs, { id, title, url, createdAt, updatedAt, published }) => ({
+		...jobs,
+		[id]: {
+			previous: {
+				title,
+				url,
+				createdAt,
+				updatedAt,
+				published,
+			},
+			next: null,
+			title,
+			url,
+			createdAt,
+			updatedAt,
+			published,
+		},
+	}), {})),
+	...((await prisma.analysisJob.findMany({
+		where: {
+			id: {
+				in: id,
+			},
+			jobId: {
+				not: null,
+			},
+		},
+		select: {
+			id: true,
+			title: true,
+			url: true,
+			createdAt: true,
+			updatedAt: true,
+			published: true,
+			job: {
+				select: {
+					title: true,
+					url: true,
+					createdAt: true,
+					updatedAt: true,
+					published: true,
+				},
+			},
+		},
+	})).reduce((jobs, { id, title, url, createdAt, updatedAt, published, job }) => ({
+		...jobs,
+		[id]: {
+			previous: title ? {
+				title,
+				url,
+				createdAt,
+				updatedAt,
+				published,
+			} : null,
+			next: job,
+			title: title ?? job.title,
+			url: url ?? job.url,
+			createdAt: createdAt ?? job.createdAt,
+			updatedAt: updatedAt ?? job.updatedAt,
+			published: title ? published : job.published,
+		},
+	}), {})),
+})
+
 export const analysis = {
 	findUnique: async (id) => {
 		const analysis = await prisma.analysis.findUniqueOrThrow({
@@ -1492,140 +1670,14 @@ export const analysis = {
 		}), {})
 
 		const analysisLabelId = unique(analysisLabelsOnJobsId.map(({ analysisLabelId }) => analysisLabelId).sort())
-
-		const updatedLabels = (await prisma.analysisLabel.findMany({
-			where: {
-				id: {
-					in: analysisLabelId,
-				},
-				labelLabel: {
-					not: null,
-				},
-			},
-			select: {
-				id: true,
-				labelLabel: true,
-				colorId: true,
-			},
-		})).reduce((labels, { id, labelLabel, colorId }) => ({
-			...labels,
-			[id]: {
-				label: labelLabel,
-				colorId,
-			},
-		}), {})
-
-		const labels = (await prisma.analysisLabel.findMany({
-			where: {
-				id: {
-					in: analysisLabelId,
-				},
-				labelLabel: null,
-			},
-			select: {
-				id: true,
-				label: {
-					select: {
-						label: true,
-					},
-				},
-				colorId: true,
-			},
-		})).reduce((labels, { id, label, colorId }) => ({
-			...labels,
-			[id]: {
-				label: label.label,
-				colorId,
-			},
-		}), {})
-
-		const analysisLabels = {
-			...updatedLabels,
-			...labels,
-		}
+		const analysisLabels = await analysisFindManyLabel(analysisLabelId)
 
 		const analysisColorId = unique(Object.values(analysisLabels).map(({ colorId }) => colorId).sort())
-
-		const updatedColors = (await prisma.analysisColor.findMany({
-			where: {
-				id: {
-					in: analysisColorId,
-				},
-				colorColor: {
-					not: null,
-				},
-			},
-			select: {
-				id: true,
-				colorColor: true,
-			},
-		})).reduce((colors, { id, colorColor }) => ({
-			...colors,
-			[id]: colorColor,
-		}), {})
-
-		const colors = (await prisma.analysisColor.findMany({
-			where: {
-				id: {
-					in: analysisColorId,
-				},
-				colorColor: null,
-			},
-			select: {
-				id: true,
-				color: {
-					select: {
-						color: true,
-					},
-				},
-			},
-		})).reduce((colors, { id, color }) => ({
-			...colors,
-			[id]: color.color,
-		}), {})
 
 		const analysisJobId = unique([
 			...analysis.jobs.map(({ analysisJobId }) => analysisJobId),
 			...analysisLabelsOnJobsId.map(({ analysisJobId }) => analysisJobId),
 		].sort())
-
-		const updatedJobs = (await prisma.analysisJob.findMany({
-			where: {
-				id: {
-					in: analysisJobId,
-				},
-				title: {
-					not: null,
-				},
-			},
-			select: {
-				id: true,
-				title: true,
-			},
-		})).reduce((jobs, { id, title }) => ({
-			...jobs,
-			[id]: title,
-		}), {})
-
-		const jobs = (await prisma.analysisJob.findMany({
-			where: {
-				id: {
-					in: analysisJobId,
-				},
-				title: null,
-			},
-			select: {
-				id: true,
-				job: {
-					select: {
-						title: true,
-					},
-				},
-			},
-		})).reduce((jobs, { id, job }) => ({
-			...jobs,
-			[id]: job.title,
-		}), {})
 
 		const previous = await prisma.analysis.findFirst({
 			where: {
@@ -1665,15 +1717,9 @@ export const analysis = {
 				...analysisLabelsOnJobs,
 			},
 			labels: {
-				colors: {
-					...updatedColors,
-					...colors,
-				},
+				colors: await analysisFindManyColor(analysisColorId),
 				labels: analysisLabels,
-				jobs: {
-					...updatedJobs,
-					...jobs,
-				},
+				jobs: await analysisFindManyJob(analysisJobId),
 			},
 			previous,
 			next,
