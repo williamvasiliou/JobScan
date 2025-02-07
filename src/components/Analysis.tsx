@@ -105,6 +105,20 @@ function analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart, 
 		})
 	}
 
+	function refine(refined) {
+		setCurrentAnalysis({
+			...currentAnalysis,
+			isRefined: refined,
+		})
+	}
+
+	function updated(updated) {
+		setCurrentAnalysis({
+			...currentAnalysis,
+			isUpdated: updated,
+		})
+	}
+
 	function setNewTitle(newTitle) {
 		setCurrentAnalysis({
 			...currentAnalysis,
@@ -166,6 +180,13 @@ function analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart, 
 			<hr/>
 			<h3>Search</h3>
 			{description(`analysis-${id}-search`, filter, search, newDateTime(start), newDateTime(end))}
+			<input
+				id={`analysis-${id}-updated`}
+				defaultChecked={currentAnalysis.isUpdated}
+				onChange={(e) => updated(e.target.checked)}
+				type='checkbox'
+			/>
+			<label htmlFor={`analysis-${id}-updated`}>Updated</label>
 			<hr/>
 			<h3>{currentAnalysis.count.labels} {currentAnalysis.noun.labels}</h3>
 			<AnalysisLabels
@@ -176,6 +197,15 @@ function analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart, 
 			/>
 			<hr/>
 			<h3>{currentAnalysis.count.jobs} {currentAnalysis.noun.jobs}</h3>
+			<input
+				id={`analysis-${id}-refine`}
+				defaultChecked={currentAnalysis.isRefined}
+				onChange={(e) => refine(e.target.checked)}
+				type='checkbox'
+			/>
+			<label htmlFor={`analysis-${id}-refine`}>Refine</label>
+			<br/>
+			<br/>
 			<AnalysisJobs
 				jobs={currentAnalysis.values.jobs}
 				currentAnalysis={currentAnalysis}
@@ -204,14 +234,23 @@ function Analysis(props) {
 	function style(analysis) {
 		setCurrentAnalysis({
 			...analysis,
-			style: Object.entries(analysis.labels.colors).map(([ colorId, color ]) => (
-`.analysis.label.color-${colorId} {
-	border-color: #${color};
+			style: Object.entries(analysis.labels.colors).map(([ colorId, { previous, next } ]) => (
+`.analysis.previous.label.color-${colorId} {
+	border-color: #${previous ?? next};
 }
 
-.analysis.label.color-${colorId}:hover,
-.analysis.label.selected.color-${colorId} {
-	background-color: #${color};
+.analysis.previous.label.color-${colorId}:hover,
+.analysis.previous.label.selected.color-${colorId} {
+	background-color: #${previous ?? next};
+}
+
+.analysis.next.label.color-${colorId} {
+	border-color: #${next ?? previous};
+}
+
+.analysis.next.label.color-${colorId}:hover,
+.analysis.next.label.selected.color-${colorId} {
+	background-color: #${next ?? previous};
 }`
 			)).join('\n'),
 		})

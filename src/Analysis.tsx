@@ -119,10 +119,9 @@ export const newValues = (currentAnalysis, jobs) => {
 	const rankLabels = (labels, { id }) => labels + rank[id]
 	const byJobRank = (previous, next) => previous.labels.reduce(rankLabels, 0) < next.labels.reduce(rankLabels, 0)
 
-	const analysisJobs = jobs.map(({ id, job, labels }) => ({
-		id,
-		job,
-		labels: labels.sort(byLabel).sort(byRank),
+	const analysisJobs = jobs.map((job) => ({
+		...job,
+		labels: job.labels.sort(byLabel).sort(byRank),
 	})).sort(byJob).sort(byJobRank)
 
 	const count = {
@@ -170,8 +169,8 @@ export const fromPrisma = (analysis) => {
 	const byJobRank = (previous, next) => previous.labels.reduce(rankLabels, 0) < next.labels.reduce(rankLabels, 0)
 
 	const jobs = Object.entries(analysis.jobs).map(([ id, labels ]) => ({
+		...analysis.labels.jobs[id],
 		id,
-		job: analysis.labels.jobs[id],
 		labels: labelsFromPrisma(labels),
 	})).sort(byJob).sort(byJobRank)
 
@@ -186,6 +185,8 @@ export const fromPrisma = (analysis) => {
 		...analysis,
 		newTitle: analysis.title,
 		isEditing: false,
+		isRefined: false,
+		isUpdated: false,
 		selected: {
 			labels: [],
 			jobs: [],
