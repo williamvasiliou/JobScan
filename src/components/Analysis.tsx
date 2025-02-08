@@ -5,7 +5,7 @@ import JobList from './JobList'
 import JobListActions from './JobListActions'
 import JobMore from './JobMore'
 
-import { ACTIONS, viewAnalysis, saveAnalysis, deleteAnalysis } from '/src/Analysis'
+import { ACTIONS, updatedValues, viewAnalysis, saveAnalysis, deleteAnalysis } from '/src/Analysis'
 import { DATE, checkboxes as searchCheckboxes, dates } from '/src/Search'
 
 import { analysisTake } from '/src/Fetch'
@@ -92,11 +92,20 @@ function analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart, 
 		id,
 		title, newTitle,
 		isEditing,
+		isRefined,
+		isUpdated,
 		createdAt,
 		search,
 		filter,
 		start, end,
+		count,
+		noun,
+		values,
+		style,
+		previous, next,
 	} = currentAnalysis
+
+	const canRefine = count.jobs[false] !== count.jobs[true] && !!count.jobs[true]
 
 	function edit() {
 		setCurrentAnalysis({
@@ -116,6 +125,7 @@ function analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart, 
 		setCurrentAnalysis({
 			...currentAnalysis,
 			isUpdated: updated,
+			...updatedValues(updated, values),
 		})
 	}
 
@@ -143,7 +153,7 @@ function analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart, 
 	return (
 		<>
 			<style>
-				{currentAnalysis.style}
+				{style}
 			</style>
 			{isEditing ? (
 				<>
@@ -182,39 +192,46 @@ function analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart, 
 			{description(`analysis-${id}-search`, filter, search, newDateTime(start), newDateTime(end))}
 			<input
 				id={`analysis-${id}-updated`}
-				defaultChecked={currentAnalysis.isUpdated}
+				defaultChecked={isUpdated}
 				onChange={(e) => updated(e.target.checked)}
 				type='checkbox'
 			/>
 			<label htmlFor={`analysis-${id}-updated`}>Updated</label>
 			<hr/>
-			<h3>{currentAnalysis.count.labels} {currentAnalysis.noun.labels}</h3>
+			<h3>{count.labels} {noun.labels}</h3>
 			<AnalysisLabels
-				labels={currentAnalysis.values.labels}
+				labels={values.labels}
 				jobId={false}
 				currentAnalysis={currentAnalysis}
 				setCurrentAnalysis={setCurrentAnalysis}
 			/>
 			<hr/>
-			<h3>{currentAnalysis.count.jobs} {currentAnalysis.noun.jobs}</h3>
-			<input
-				id={`analysis-${id}-refine`}
-				defaultChecked={currentAnalysis.isRefined}
-				onChange={(e) => refine(e.target.checked)}
-				type='checkbox'
-			/>
-			<label htmlFor={`analysis-${id}-refine`}>Refine</label>
-			<br/>
-			<br/>
+			<h3>{count.jobs[isRefined]} {noun.jobs[isRefined]}</h3>
+			{isRefined || canRefine ? (
+				<>
+					<input
+						id={`analysis-${id}-refine`}
+						defaultChecked={isRefined}
+						disabled={!canRefine}
+						onChange={(e) => refine(e.target.checked)}
+						type='checkbox'
+					/>
+					<label htmlFor={`analysis-${id}-refine`}>Refine</label>
+					<br/>
+					<br/>
+				</>
+			) : (
+				[]
+			)}
 			<AnalysisJobs
-				jobs={currentAnalysis.values.jobs}
+				jobs={values.jobs}
 				currentAnalysis={currentAnalysis}
 				setCurrentAnalysis={setCurrentAnalysis}
 			/>
 			<JobMore
 				view={view}
-				previous={currentAnalysis.previous}
-				next={currentAnalysis.next}
+				previous={previous}
+				next={next}
 			/>
 		</>
 	)
