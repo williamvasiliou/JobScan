@@ -88,9 +88,20 @@ export const addAnalysis = async (search, analysis, setAnalysis) => {
 export const byLabel = (previous, next) => previous.label > next.label
 export const byJob = (previous, next) => previous.job > next.job
 
+export const newCount = (labels, jobs) => ({
+	labels: labels.length,
+	jobs: {
+		[false]: jobs.length,
+		[true]: jobs.filter(({ labels }) => !!labels.length).length,
+	},
+})
+
 export const newNoun = ({ labels, jobs }) => ({
 	labels: labels !== 1 ? 'Labels' : 'Label',
-	jobs: jobs !== 1 ? 'Jobs' : 'Job',
+	jobs: {
+		[false]: jobs[false] !== 1 ? 'Jobs' : 'Job',
+		[true]: jobs[true] !== 1 ? 'Jobs' : 'Job',
+	},
 })
 
 export const newValues = (currentAnalysis, jobs) => {
@@ -124,23 +135,59 @@ export const newValues = (currentAnalysis, jobs) => {
 		labels: job.labels.sort(byLabel).sort(byRank),
 	})).sort(byJob).sort(byJobRank)
 
-	const count = {
-		labels: labels.length,
-		jobs: jobs.length,
-	}
-
+	const count = newCount(labels, jobs)
 	const noun = newNoun(count)
 
 	return {
 		count,
 		noun,
-		values: {
+		...updatedValues(currentAnalysis.isUpdated, {
 			labels: analysisLabels,
 			jobs: analysisJobs,
-		},
+		}),
 		rank,
 	}
 }
+
+export const updatedValue = (updated, previous, next) => updated ? (
+	next ?? previous
+) : (
+	previous ?? next
+)
+
+export const updatedLabels = (updated, labels) => labels.map((label) => ({
+	...label,
+	label: updatedValue(updated, label.previous, label.next),
+	isDeleted: updated && label.next === null,
+}))
+
+export const updatedValues = (updated, { labels, jobs }) => ({
+	values: {
+		labels: updatedLabels(updated, labels),
+		jobs: jobs.map((job) => ({
+			...job,
+			title: updatedValue(updated, job.previous?.title, job.next?.title),
+			url: updatedValue(updated, job.previous?.url, job.next?.url),
+			createdAt: updatedValue(updated, job.previous?.createdAt, job.next?.createdAt),
+			updatedAt: updatedValue(updated, job.previous?.updatedAt, job.next?.updatedAt),
+			published: updated ? (
+				job.next ? (
+					job.next.published
+				) : (
+					job.previous.published
+				)
+			) : (
+				job.previous ? (
+					job.previous.published
+				) : (
+					job.next.published
+				)
+			),
+			labels: updatedLabels(updated, job.labels),
+			isDeleted: updated && job.next === null,
+		})),
+	},
+})
 
 export const fromPrisma = (analysis) => {
 	const rank = Object.values(analysis.jobs).reduce((labels, newLabels) => [
@@ -159,6 +206,7 @@ export const fromPrisma = (analysis) => {
 		.map((id) => ({
 			...analysisLabels[id],
 			id,
+			isDeleted: false,
 		}))
 		.sort(byLabel)
 		.sort(byRank)
@@ -172,13 +220,10 @@ export const fromPrisma = (analysis) => {
 		...analysis.labels.jobs[id],
 		id,
 		labels: labelsFromPrisma(labels),
+		isDeleted: false,
 	})).sort(byJob).sort(byJobRank)
 
-	const count = {
-		labels: labels.length,
-		jobs: jobs.length,
-	}
-
+	const count = newCount(labels, jobs)
 	const noun = newNoun(count)
 
 	return {

@@ -1,8 +1,9 @@
 import { newValues } from '/src/Analysis'
 
 function AnalysisLabels({ labels, jobId, currentAnalysis, setCurrentAnalysis }) {
-	const { selected } = currentAnalysis
+	const { isRefined, isUpdated, selected } = currentAnalysis
 	const selectedLabels = selected.labels
+	const count = Math.max(1, currentAnalysis.count.jobs[isRefined])
 
 	function select(id) {
 		const currentJobs = currentAnalysis.values.jobs
@@ -43,16 +44,23 @@ function AnalysisLabels({ labels, jobId, currentAnalysis, setCurrentAnalysis }) 
 		})
 	}
 
-	function button({ id, label, colorId }) {
+	function button({ id, label, colorId, isDeleted }) {
 		const selected = selectedLabels.indexOf(id) >= 0
+		const button = `${label} (${(100.0 * currentAnalysis.rank[id] / count).toFixed(2)}%)`
 
 		return (
 			<button
 				key={id}
-				className={`analysis previous label ${selected ? 'selected' : ''} color-${colorId}`}
+				className={`analysis ${isUpdated ? 'next' : 'previous'} label ${selected ? 'selected' : ''} color-${colorId}`}
 				onClick={() => selected ? remove(id) : select(id)}
 			>
-				{label} ({(100.0 * currentAnalysis.rank[id] / Math.max(1, currentAnalysis.count.jobs)).toFixed(2)}%)
+				{isDeleted ? (
+					<del>
+						{button}
+					</del>
+				) : (
+					button
+				)}
 			</button>
 		)
 	}

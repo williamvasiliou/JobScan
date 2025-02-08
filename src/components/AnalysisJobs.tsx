@@ -3,14 +3,22 @@ import AnalysisLabels from './AnalysisLabels'
 function AnalysisJobs({ jobs, currentAnalysis, setCurrentAnalysis }) {
 	return (
 		<ol>
-			{jobs.map(({ id, title, url, labels }) => (
+			{(currentAnalysis.isRefined ? (
+				jobs.filter(({ labels }) => !!labels.length)
+			) : (
+				jobs
+			)).map(({ id, title, url, labels, isDeleted }) => (
 				<li key={id}>
 					<hr/>
-					<h4>{title}</h4>
+					{isDeleted ? (
+						<del><h4>{title}</h4></del>
+					) : (
+						<h4>{title}</h4>
+					)}
 					{url ? (
 						<a href={url} target='_blank'>{url}</a>
 					) : (
-						<em>URL</em>
+						<em>No URL</em>
 					)}
 					<br/>
 					<br/>
