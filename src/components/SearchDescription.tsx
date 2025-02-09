@@ -1,5 +1,5 @@
 import { nonEmpty } from '/src/Content'
-import { DATE, checkboxes, dates, noText, noDate, emptyDate } from '/src/Search'
+import { DATE, dates, noText, noDate, emptyDate } from '/src/Search'
 
 const dateItem = (key, { date, time }) => date ? (
 	time ? (
@@ -33,7 +33,7 @@ const date = (description, start, end, bits) => {
 	}
 }
 
-const text = (description, search, bits) => {
+const text = (description, search, checkboxes, bits) => {
 	if (search) {
 		description.push(
 			<div key='search'>
@@ -51,6 +51,7 @@ const text = (description, search, bits) => {
 
 function SearchDescription(props) {
 	const { isAdvanced, bits, search, start, end } = props.search
+	const { checkboxes } = props
 	const description = []
 
 	if (isAdvanced) {
@@ -62,9 +63,9 @@ function SearchDescription(props) {
 		} else if (hasNoText) {
 			date(description, start, end, bits)
 		} else if (hasNoDate) {
-			text(description, search, bits)
+			text(description, search, checkboxes, bits)
 		} else {
-			text(description, search, bits)
+			text(description, search, checkboxes, bits)
 			date(description, start, end, bits)
 		}
 	} else if (search) {

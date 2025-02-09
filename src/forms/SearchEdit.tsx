@@ -8,6 +8,7 @@ function SearchEdit(props) {
 	const {
 		search, setSearch,
 		newSearch, setNewSearch,
+		checkboxes,
 		setStartAfter,
 		setPreviousStart,
 		start, setStart,
@@ -54,7 +55,8 @@ function SearchEdit(props) {
 					id={id}
 					defaultValue={newSearch.search}
 					onChange={(e) => setNewSearchProp('search', e.target.value)}
-					type='text'
+					type='search'
+					autoFocus
 				/>
 				<button type='submit'>
 					{empty(search) || !empty(newSearchContent) && changed(search, newSearchContent) ? (
@@ -68,6 +70,7 @@ function SearchEdit(props) {
 					<>
 						<SearchCheckboxes
 							id={id}
+							checkboxes={checkboxes}
 							newSearch={newSearch}
 							setNewSearch={setNewSearch}
 						/>
@@ -85,9 +88,18 @@ function SearchEdit(props) {
 				)}
 			</form>
 			{!empty(search) ? (
-				<SearchDescription search={search}>
-					<br/>
-					<button onClick={() => addAnalysis(search)}>New Analysis</button>
+				<SearchDescription
+					search={search}
+					checkboxes={checkboxes}
+				>
+					{addAnalysis ? (
+						<>
+							<br/>
+							<button onClick={() => addAnalysis(search)}>New Analysis</button>
+						</>
+					) : (
+						[]
+					)}
 				</SearchDescription>
 			) : (
 				[]

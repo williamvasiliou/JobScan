@@ -28,14 +28,14 @@ export const unique = (keywords) => {
 export const newKeywords = (keywords) => unique(keywords.trim().replaceAll('\n', ' ').split(',').map(newTitle).filter(nonEmpty).sort())
 
 export const content = (newKeyword) => /^[ a-zA-Z0-9]$/.test(newKeyword) ? newKeyword : `\\${newKeyword}`
-export const set = (newKeyword) => /^[a-zA-Z]$/.test(newKeyword)
+export const set = (newKeyword) => !/^[a-zA-Z]$/.test(newKeyword)
 
 export const fix = (keyword) => Array.from(keyword).reduce((keywords, newKeyword) => keywords['\\'] ? ({
 	regex: [
 		...keywords.regex,
 		{
 			content: content(newKeyword),
-			set: set(newKeyword),
+			set: true,
 		},
 	],
 	['\\']: false,
@@ -44,7 +44,7 @@ export const fix = (keyword) => Array.from(keyword).reduce((keywords, newKeyword
 		...keywords.regex,
 		{
 			content: content(newKeyword),
-			set: false,
+			set: set(newKeyword),
 		},
 	],
 	['\\']: newKeyword === '\\',
@@ -84,7 +84,7 @@ export const fix = (keyword) => Array.from(keyword).reduce((keywords, newKeyword
 	set: true,
 })
 
-export const fixed = ({ regex, set }) => `${regex.join('')}${set ? '' : ')'}`.replaceAll(' ', '[ ]+')
+export const fixed = ({ regex, set }) => `${regex.join('')}${set ? '' : ')'}`.replaceAll(' ', '([ ]+|[-]+)')
 
 export const regex = (keyword) => `\\b${fixed(fix(keyword))}\\b`
 

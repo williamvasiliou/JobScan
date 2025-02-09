@@ -1,12 +1,13 @@
 import AnalysisActions from './AnalysisActions'
 import AnalysisLabels from './AnalysisLabels'
 import AnalysisJobs from './AnalysisJobs'
+import SearchEdit from '/src/forms/SearchEdit'
 import JobList from './JobList'
 import JobListActions from './JobListActions'
 import JobMore from './JobMore'
 
 import { ACTIONS, updatedValues, viewAnalysis, saveAnalysis, deleteAnalysis } from '/src/Analysis'
-import { DATE, checkboxes as searchCheckboxes, dates } from '/src/Search'
+import { DATE, checkboxes as searchCheckboxes, analysisCheckboxes, dates } from '/src/Search'
 
 import { analysisTake } from '/src/Fetch'
 
@@ -241,6 +242,8 @@ function Analysis(props) {
 	const {
 		analysis,
 		setMode,
+		search, setSearch,
+		newSearch, setNewSearch,
 		currentItem, setCurrentItem,
 		setStartAfter,
 		setPreviousStart,
@@ -303,7 +306,20 @@ function Analysis(props) {
 						item: currentItem.item(view, remove),
 					}}
 					itemTake={analysisTake}
-					search={undefined}
+					search={
+						<SearchEdit
+							id='analysis'
+							search={search}
+							setSearch={setSearch}
+							newSearch={newSearch}
+							setNewSearch={setNewSearch}
+							checkboxes={analysisCheckboxes}
+							setStartAfter={setStartAfter}
+							setPreviousStart={setPreviousStart}
+							start={start}
+							setStart={setStart}
+						/>
+					}
 					actions={
 						<JobListActions
 							actions={ACTIONS}
