@@ -38,6 +38,7 @@ function KeywordAdd(props) {
 					defaultValue={label}
 					onChange={(e) => setNewLabel(e.target.value)}
 					type='text'
+					autoFocus
 				/>
 			</div>
 			<label htmlFor={`keywords-adding-${id}`}>Keywords:</label>

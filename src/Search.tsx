@@ -35,6 +35,29 @@ export const checkboxes = Object.entries({
 	},
 })
 
+export const analysisCheckboxes = Object.entries({
+	[TITLE]: {
+		id: 'title',
+		prop: 'isTitle',
+		label: 'Title',
+	},
+	[URL]: {
+		id: 'url',
+		prop: 'isUrl',
+		label: 'URL',
+	},
+	[HEADER]: {
+		id: 'header',
+		prop: 'isHeader',
+		label: 'Search',
+	},
+	[CONTENT]: {
+		id: 'content',
+		prop: 'isContent',
+		label: 'Labels',
+	},
+})
+
 export const dates = {
 	[CREATED]: 'Created',
 	[UPDATED]: 'Updated',

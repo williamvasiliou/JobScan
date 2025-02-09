@@ -8,6 +8,7 @@ import Analysis from './Analysis'
 
 import { newTitle, newContent, fromPrisma, toPrisma } from '/src/Content'
 import { ADD, VIEW, ANALYSIS, ACTIONS } from '/src/Job'
+import { checkboxes } from '/src/Search'
 
 import { fetchCreate, fetchRead, fetchUpdate, jobTake } from '/src/Fetch'
 
@@ -16,6 +17,8 @@ function Jobs(props) {
 
 	if (mode === ANALYSIS) {
 		const {
+			analysisSearch, setAnalysisSearch,
+			analysisNewSearch, setAnalysisNewSearch,
 			analysisCurrentItem, setAnalysisCurrentItem,
 			setAnalysisStartAfter,
 			setAnalysisPreviousStart,
@@ -27,6 +30,10 @@ function Jobs(props) {
 			<Analysis
 				analysis={analysis}
 				setMode={setMode}
+				search={analysisSearch}
+				setSearch={setAnalysisSearch}
+				newSearch={analysisNewSearch}
+				setNewSearch={setAnalysisNewSearch}
 				currentItem={analysisCurrentItem}
 				setCurrentItem={setAnalysisCurrentItem}
 				setStartAfter={setAnalysisStartAfter}
@@ -159,6 +166,7 @@ function Jobs(props) {
 						setSearch={setSearch}
 						newSearch={newSearch}
 						setNewSearch={setNewSearch}
+						checkboxes={checkboxes}
 						setStartAfter={setStartAfter}
 						setPreviousStart={setPreviousStart}
 						start={start}

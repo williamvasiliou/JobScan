@@ -1,7 +1,7 @@
-import { checkboxes, setChecked } from '/src/Search'
+import { setChecked } from '/src/Search'
 
 function SearchCheckboxes(props) {
-	const { newSearch, setNewSearch } = props
+	const { checkboxes, newSearch, setNewSearch } = props
 
 	return checkboxes.map(([ key, { id, prop, label } ]) => (
 		<span key={key}>

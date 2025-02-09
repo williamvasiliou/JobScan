@@ -47,6 +47,7 @@ function JobAdd(props) {
 				defaultValue = {content}
 				onChange={(e) => setContent(e.target.value)}
 				onPaste={handlePaste}
+				autoFocus
 			>
 			</textarea>
 			<br/>

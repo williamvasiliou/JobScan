@@ -34,22 +34,14 @@ const jobContains = (item, search) => ({
 
 const jobSearchSimpleWhere = (search) => (search ? {
 	OR: [
-		{
-			...jobContains('title', search),
-		},
-		{
-			...jobContains('url', search),
-		},
+		jobContains('title', search),
+		jobContains('url', search),
 		{
 			sections: {
 				some: {
 					OR: [
-						{
-							...jobContains('header', search),
-						},
-						{
-							...jobContains('content', search),
-						},
+						jobContains('header', search),
+						jobContains('content', search),
 					],
 				},
 			},
@@ -257,16 +249,14 @@ export const job = {
 			return (await job.findManyWhereOrderById(where, 'asc')).reverse()
 		}
 	},
-	findManyWhereOrStart: async (where, after, id) => {
-		if (where) {
-			return await job.findManyWhere(where, after, id)
-		} else {
-			return await job.findManyStart(after, id)
-		}
-	},
-	findManySearchSimple: async (search, after, id) => {
-		return await job.findManyWhereOrStart(jobSearchSimpleWhere(search), after, id)
-	},
+	findManyWhereOrStart: async (where, after, id) => (where ? (
+		await job.findManyWhere(where, after, id)
+	) : (
+		await job.findManyStart(after, id)
+	)),
+	findManySearchSimple: async (search, after, id) => (
+		await job.findManyWhereOrStart(jobSearchSimpleWhere(search), after, id)
+	),
 	findManySearch: async (search, start, end, filter, after, id) => {
 		const bits = filter & MAX
 
@@ -1451,6 +1441,144 @@ const analysisCreateAdvanced = async (search, start, end, bits) => {
 	}
 }
 
+const analysisSearchSimpleWhere = (search) => search ? jobContains('title', search) : false
+
+const analysisLabelWhere = (where) => ({
+	OR: [
+		{
+			labelLabel: where.label,
+		},
+		{
+			label: where,
+		},
+	],
+})
+
+const analysisLabelContains = (where) => ({
+	labels: {
+		some: {
+			analysisLabel: {
+				analysisLabel: analysisLabelWhere(where),
+			},
+		},
+	},
+})
+
+const analysisJobWhere = (where) => ({
+	OR: [
+		where,
+		{
+			job: where,
+		},
+	],
+})
+
+const analysisJobContains = (where) => {
+	const analysisJob = analysisJobWhere(where)
+
+	return [
+		{
+			jobs: {
+				some: {
+					analysisJob,
+				},
+			},
+		},
+		{
+			labels: {
+				some: {
+					analysisLabel: {
+						analysisJob,
+					},
+				},
+			},
+		},
+	]
+}
+
+const analysisSearchTextWhere = (text, bits) => {
+	const search = newTitle(text)
+
+	if (!search) {
+		return false
+	}
+
+	const hasTitle = !!(bits & TITLE)
+	const hasUrl = !!(bits & URL)
+	const hasHeader = !!(bits & HEADER)
+	const hasContent = !!(bits & CONTENT)
+
+	if (hasTitle || hasUrl || hasHeader || hasContent) {
+		const whereOR = []
+
+		if (hasTitle) {
+			const title = jobContains('title', search)
+
+			whereOR.push({
+				OR: [
+					title,
+					...analysisJobContains(title),
+				],
+			})
+		}
+
+		if (hasUrl) {
+			whereOR.push({
+				OR: analysisJobContains(jobContains('url', search)),
+			})
+		}
+
+		if (hasHeader) {
+			whereOR.push(jobContains('search', search))
+		}
+
+		if (hasContent) {
+			whereOR.push(analysisLabelContains(jobContains('label', search)))
+		}
+
+		if (whereOR.length > 0) {
+			return jobWhereOR(whereOR)
+		}
+	}
+
+	return false
+}
+
+const analysisSearchDateWhere = (start, end, bits) => {
+	const where = jobSearchDateWhere(start, end, bits)
+
+	if (where) {
+		const gte = where?.gte
+		const lte = where?.lte
+		const date = {}
+
+		if (gte) {
+			date.gte = gte
+		}
+
+		if (lte) {
+			date.lte = lte
+		}
+
+		return {
+			OR: [
+				{
+					createdAt: date,
+				},
+				{
+					start: date,
+				},
+				{
+					end: date,
+				},
+				...analysisJobContains(where),
+			],
+		}
+	}
+
+	return false
+}
+
 const analysisFindManyLabel = async (id) => ({
 	...((await prisma.analysisLabel.findMany({
 		where: {
@@ -1723,6 +1851,81 @@ export const analysis = {
 			},
 			previous,
 			next,
+		}
+	},
+	findManyWhereOrderById: async (where, id) => await prisma.analysis.findMany({
+		where: where,
+		orderBy: { id },
+		select: analysisSelect,
+		take: analysisTake,
+	}),
+	findManyWhere: async (where, after, id) => {
+		if (after) {
+			if (id > 0) {
+				where.id = {
+					lt: id,
+				}
+			}
+
+			return await analysis.findManyWhereOrderById(where, 'desc')
+		} else {
+			if (id > 0) {
+				where.id = {
+					gt: id,
+				}
+			}
+
+			return (await analysis.findManyWhereOrderById(where, 'asc')).reverse()
+		}
+	},
+	findManyWhereOrStart: async (where, after, id) => (where ? (
+		await analysis.findManyWhere(where, after, id)
+	) : (
+		await analysis.findManyStart(after, id)
+	)),
+	findManySearchSimple: async (search, after, id) => (
+		await analysis.findManyWhereOrStart(analysisSearchSimpleWhere(search), after, id)
+	),
+	findManySearch: async (search, start, end, filter, after, id) => {
+		const bits = filter & MAX
+
+		if (bits > 0) {
+			const hasNoText = noText(bits)
+			const hasNoDate = noDate(bits)
+
+			if (hasNoText && hasNoDate) {
+				return await analysis.findManyStart(after, id)
+			} else if (hasNoText) {
+				const where = analysisSearchDateWhere(start, end, bits)
+
+				return await analysis.findManyWhereOrStart(where, after, id)
+			} else if (hasNoDate) {
+				const where = analysisSearchTextWhere(search, bits)
+
+				return await analysis.findManyWhereOrStart(where, after, id)
+			} else {
+				const whereDate = analysisSearchDateWhere(start, end, bits)
+				const whereText = analysisSearchTextWhere(search, bits)
+
+				if (whereDate && whereText) {
+					const where = {
+						AND: [
+							whereDate,
+							whereText,
+						],
+					}
+
+					return await analysis.findManyWhere(where, after, id)
+				} else if (whereDate) {
+					return await analysis.findManyWhere(whereDate, after, id)
+				} else if (whereText) {
+					return await analysis.findManyWhere(whereText, after, id)
+				} else {
+					return await analysis.findManyStart(after, id)
+				}
+			}
+		} else {
+			return await analysis.findManySearchSimple(search, after, id)
 		}
 	},
 	findManyStart: async (after, id) => (id > 0 ? (after ? (

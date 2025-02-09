@@ -11,6 +11,7 @@ function SectionEdit(props) {
 				defaultValue={props.newHeader}
 				onChange={props.onChangeHeader}
 				type='text'
+				autoFocus
 			/>
 			<br/>
 			<label htmlFor={content}>Content:</label>
