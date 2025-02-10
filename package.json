@@ -1,17 +1,24 @@
 {
   "name": "jobscan",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "description": "Analyze job descriptions for keywords",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/williamvasiliou/jobscan"
+  },
+  "author": "William Vasiliou",
+  "license": "MIT",
   "scripts": {
-    "postinstall": "prisma generate && prisma db seed",
+    "postinstall": "prisma migrate dev --name init",
     "dev": "node server-dev",
-    "build": "tsc -b && npm run build:client && npm run build:server",
+    "build": "npm run build:client && npm run build:server",
     "build:client": "vite build --outDir dist/client",
     "build:server": "vite build --outDir dist/server --ssr src/entry-server.tsx",
     "lint": "eslint .",
-    "serve": "node server-prod",
-    "preview": "npm run build:client && npm run serve"
+    "typecheck": "tsc --noEmit",
+    "serve": "node server-prod"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",

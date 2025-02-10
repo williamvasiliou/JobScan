@@ -35,7 +35,7 @@ function JobAdd(props) {
 
 	function handlePaste(event) {
 		if (!event.target.value) {
-			event.clipboardData.items[0]?.getAsString((value) => submit(value))
+			submit(event.clipboardData.getData('text'))
 		}
 	}
 

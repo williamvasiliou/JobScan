@@ -11,6 +11,7 @@ function JobEdit(props) {
 				defaultValue={props.newTitle}
 				onChange={props.onChangeTitle}
 				type='text'
+				autoFocus
 			/>
 			<br/>
 			<input
