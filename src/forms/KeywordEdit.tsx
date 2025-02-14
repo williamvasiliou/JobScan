@@ -15,6 +15,7 @@ function KeywordEdit(props) {
 					defaultValue={props.newLabel}
 					onChange={props.onChangeLabel}
 					type='text'
+					autoFocus
 				/>
 			</td>
 			<td>

@@ -62,6 +62,13 @@ export const Section = {
 
 		return content
 	},
+	newSplit: (lines) => ({
+		line: 1,
+		lines,
+		min: 1,
+		max: lines.length - 2,
+		content: Section.newSplitContent(1, lines),
+	}),
 	glue: (up, down) => {
 		up.action.type = VIEWING
 		up.action.state = 0
