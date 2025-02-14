@@ -72,13 +72,7 @@ function Section(props) {
 		const lines = content.split('\n')
 
 		if (lines.length > 2) {
-			updateActionWithState(ACTION.SPLITTING, {
-				line: 1,
-				lines: lines,
-				min: 1,
-				max: lines.length - 2,
-				content: Content.Section.newSplitContent(1, lines),
-			})
+			updateActionWithState(ACTION.SPLITTING, Content.Section.newSplit(lines))
 		}
 	}
 
@@ -97,6 +91,11 @@ function Section(props) {
 		}
 	}
 
+	const splitFirst = editSplit(
+		(state) => state.line > state.min,
+		(state) => state.line = state.min,
+	)
+
 	const splitUp = editSplit(
 		(state) => state.line > state.min,
 		(state) => --state.line,
@@ -105,6 +104,16 @@ function Section(props) {
 	const splitDown = editSplit(
 		(state) => state.line < state.max,
 		(state) => ++state.line,
+	)
+
+	const splitLast = editSplit(
+		(state) => state.line < state.max,
+		(state) => state.line = state.max,
+	)
+
+	const splitUpdate = (line) => editSplit(
+		(state) => line >= state.min && line <= state.max,
+		(state) => state.line = line,
 	)
 
 	function canJoin() {
@@ -185,8 +194,10 @@ function Section(props) {
 			delete: () => deleteSection(node),
 		},
 		[ACTION.SPLITTING]: {
+			first: splitFirst,
 			up: splitUp,
 			down: splitDown,
+			last: splitLast,
 			split: () => splitSection(node),
 		},
 		[ACTION.JOINING]: {
@@ -212,6 +223,21 @@ function Section(props) {
 				<h3>{ACTION.ACTIONS[action]} {header}...</h3>
 			}
 		</>
+	)
+
+	const splitContent = (start, content) => Content.list(content.split('\n'), (key, line) => (
+		<div
+			key={start + key}
+			onClick={splitUpdate(start + key)}
+		>
+			{line}
+		</div>
+	))
+
+	const splitHeader = (header) => (
+		<span onClick={callbacks[ACTION.SPLITTING].split}>
+			{header}
+		</span>
 	)
 
 	function sectionView() {
@@ -242,10 +268,10 @@ function Section(props) {
 			case ACTION.SPLITTING:
 				return (
 					<SectionStacked
-						up={actionState.content.up}
+						up={splitContent(0, actionState.content.up)}
 						className='splitting'
-						header={actionState.content.header}
-						down={actionState.content.down}
+						header={splitHeader(actionState.content.header)}
+						down={splitContent(actionState.line + 1, actionState.content.down)}
 					/>
 				)
 			case ACTION.JOINING:

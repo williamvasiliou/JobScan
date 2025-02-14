@@ -86,7 +86,13 @@ export const fix = (keyword) => Array.from(keyword).reduce((keywords, newKeyword
 
 export const fixed = ({ regex, set }) => `${regex.join('')}${set ? '' : ')'}`.replaceAll(' ', '([ ]+|[-]+)')
 
-export const regex = (keyword) => `\\b${fixed(fix(keyword))}\\b`
+export const regex = (keyword) => keyword === 'c' || keyword === 'C' ? (
+	'\\b(?i:c)(?=[^a-zA-Z0-9#+])|\\b(?i:c)$'
+) : (
+	`${/^\\?[a-zA-Z0-9]/.test(keyword) ? '\\b' : ''}${
+		fixed(fix(keyword))
+	}${/\\?[a-zA-Z0-9]$/.test(keyword) ? '\\b' : ''}`
+)
 
 export const newRegex = (keywords) => RegExp(keywords.map(regex).join('|'))
 

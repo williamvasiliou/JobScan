@@ -44,8 +44,10 @@ function SectionActions(props) {
 				return (
 					<>
 						<button onClick={cancel}>Cancel</button>
+						<button onClick={callbacks.first}>First</button>
 						<button onClick={callbacks.up}>Up</button>
 						<button onClick={callbacks.down}>Down</button>
+						<button onClick={callbacks.last}>Last</button>
 						<button onClick={callbacks.split}>Split</button>
 					</>
 				)

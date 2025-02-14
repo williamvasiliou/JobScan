@@ -10,7 +10,7 @@ import JobMore from './JobMore'
 import * as Content from '/src/Content'
 import * as List from '/src/List'
 
-import { VIEWING } from '/src/Action'
+import { VIEWING, SPLITTING } from '/src/Action'
 import { style } from '/src/Keyword'
 
 import { fetchCreate, fetchUpdate, fetchDelete } from '/src/Fetch'
@@ -127,6 +127,14 @@ function Job(props) {
 				sections.tail.next = newNode
 				sections.tail = newNode
 
+				const newNodeItem = newNode.item
+				const lines = newNodeItem.content.split('\n')
+
+				if (lines.length > 2) {
+					newNodeItem.action.type = SPLITTING
+					newNodeItem.action.state = Content.Section.newSplit(lines)
+				}
+
 				finishUpdateSections()
 			}
 		}
@@ -231,6 +239,8 @@ function Job(props) {
 			section.isExpanded = false
 		))
 		finishUpdateSections()
+
+		updateJob(updateProp('isDateExpanded', false))
 	}
 
 	function expandAll() {
@@ -238,6 +248,8 @@ function Job(props) {
 			section.isExpanded = true
 		))
 		finishUpdateSections()
+
+		updateJob(updateProp('isDateExpanded', true))
 	}
 
 	return (
