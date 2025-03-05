@@ -256,4 +256,15 @@ export function middleware(app, prisma) {
 	app.delete('/analysis/:id', async (req, res) => {
 		await prismaQuery(res, async () => await prisma.analysis.delete(Number(req.params.id)))
 	})
+
+	app.get('/resume/:id', async (req, res) => {
+		try {
+			if (!await prisma.newResume(res, Number(req.params.id))) {
+				res.status(500).json({})
+			}
+		} catch (e) {
+			console.log(e)
+			res.status(500).json({})
+		}
+	})
 }

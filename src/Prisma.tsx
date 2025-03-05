@@ -1,10 +1,13 @@
 import { PrismaClient } from '@prisma/client'
+import { spawn } from 'node:child_process'
 
 import { newTitle, newContent, newDate, newTime } from './Content'
 import { unique, newKeywords, newRegex } from './Keyword'
 import { TITLE, URL, HEADER, CONTENT, TEXT, CREATED, UPDATED, PUBLISHED, DATE, MAX, noText, noDate } from './Search'
 
 import { jobTake, analysisTake } from './Fetch'
+
+import { COMMAND, ARGS } from './Resume'
 
 const prisma = new PrismaClient()
 
@@ -330,6 +333,56 @@ export const job = {
 		},
 		take: jobTake,
 	}),
+	findLabels: async (id) => {
+		if (isNaN(id)) {
+			return false
+		}
+
+		const job = await prisma.job.findUniqueOrThrow({
+			where: { id },
+			select: {
+				id: true,
+			},
+		})
+
+		const sections = await prisma.section.findMany({
+			where: {
+				jobId: job.id,
+			},
+			select: {
+				content: true,
+			},
+		})
+
+		const contents = sections.map(({ content }) => content).join('\n')
+
+		const labels = await prisma.label.findMany({
+			select: {
+				label: true,
+				keywords: {
+					select: {
+						keyword: {
+							select: {
+								keyword: true,
+							},
+						},
+					},
+				},
+			},
+			orderBy: {
+				label: 'asc',
+			},
+		})
+
+		const regex = labels.map(({ label, keywords }) => ({
+			label,
+			regex: newRegex(keywords.map(({ keyword }) => (
+				keyword.keyword
+			))).test(contents),
+		}))
+
+		return regex.filter(({ regex }) => regex).map(({ label }) => label)
+	},
 	create: async (title, url, header, content) => {
 		if (typeof(title) !== 'string' || typeof(url) !== 'string' || typeof(header) !== 'string' || typeof(content) !== 'string') {
 			return false
@@ -584,6 +637,9 @@ export const section = {
 
 		const { jobId } = await prisma.section.findUniqueOrThrow({
 			where: { id },
+			select: {
+				jobId: true,
+			},
 		})
 
 		const count = await prisma.section.count({
@@ -2239,4 +2295,40 @@ export const analysis = {
 			select: analysisSelect,
 		})
 	},
+}
+
+export const newResume = async (res, id) => {
+	if (COMMAND) {
+		const labels = await job.findLabels(id)
+
+		if (!labels) {
+			return false
+		}
+
+		const child = spawn(COMMAND, ARGS)
+
+		child.on('spawn', () => {
+			res.status(200)
+
+			labels.forEach((label) => child.stdin.write(`${label}\n`))
+			child.stdin.end()
+
+		})
+
+		child.stdout.on('data', (data) => {
+			res.send(data)
+		})
+
+		child.on('exit', () => {
+			res.end()
+		})
+
+		child.on('error', () => {
+			res.status(500).json({})
+		})
+
+		return true
+	} else {
+		return false
+	}
 }
