@@ -4,7 +4,7 @@ import App from './components/App'
 import * as prisma from '/src/Prisma'
 
 export const {
-	job, section, prismaColor, highlight, analysis,
+	job, section, prismaColor, highlight, analysis, newResume,
 } = prisma
 
 export const render = async () => {

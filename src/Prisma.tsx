@@ -7,7 +7,7 @@ import { TITLE, URL, HEADER, CONTENT, TEXT, CREATED, UPDATED, PUBLISHED, DATE, M
 
 import { jobTake, analysisTake } from './Fetch'
 
-import { COMMAND, ARGS } from './Resume'
+import { createResume } from './Resume'
 
 const prisma = new PrismaClient()
 
@@ -333,11 +333,7 @@ export const job = {
 		},
 		take: jobTake,
 	}),
-	findLabels: async (id) => {
-		if (isNaN(id)) {
-			return false
-		}
-
+	findLabelsJob: async (id) => {
 		const job = await prisma.job.findUniqueOrThrow({
 			where: { id },
 			select: {
@@ -382,6 +378,92 @@ export const job = {
 		}))
 
 		return regex.filter(({ regex }) => regex).map(({ label }) => label)
+	},
+	findLabelsAnalysis: async (id, jobId) => {
+		const analysis = await prisma.analysis.findUniqueOrThrow({
+			where: { id },
+			select: {
+				labels: {
+					select: {
+						analysisLabel: {
+							select: {
+								analysisJobId: true,
+								analysisLabelId: true,
+							},
+						},
+					},
+				},
+			},
+		})
+
+		const analysisLabel = analysis.labels.map(({ analysisLabel }) => analysisLabel)
+		const rank = analysisLabel.reduce((rank, { analysisLabelId }) => ({
+			...rank,
+			[analysisLabelId]: (rank[analysisLabelId] ?? 0) + 1,
+		}), {})
+
+		const analysisLabelId = unique((jobId > 0 ? (
+			analysisLabel.filter(({ analysisJobId }) => analysisJobId === jobId)
+		) : (
+			analysisLabel
+		)).map(({ analysisLabelId }) => analysisLabelId).sort())
+
+		const analysisLabels = {
+			...((await prisma.analysisLabel.findMany({
+				where: {
+					id: {
+						in: analysisLabelId,
+					},
+					labelId: null,
+				},
+				select: {
+					id: true,
+					labelLabel: true,
+				},
+			})).reduce((labels, { id, labelLabel }) => ({
+				...labels,
+				[id]: labelLabel,
+			}), {})),
+			...((await prisma.analysisLabel.findMany({
+				where: {
+					id: {
+						in: analysisLabelId,
+					},
+					labelId: {
+						not: null,
+					},
+				},
+				select: {
+					id: true,
+					label: {
+						select: {
+							label: true,
+						},
+					},
+					labelLabel: true,
+				},
+			})).reduce((labels, { id, label, labelLabel }) => ({
+				...labels,
+				[id]: labelLabel ?? label.label,
+			}), {})),
+		}
+
+		return analysisLabelId.sort((previous, next) =>
+			analysisLabels[previous] > analysisLabels[next]
+		).sort((previous, next) =>
+			rank[previous] < rank[next]
+		).map((id) => analysisLabels[id])
+	},
+	findLabels: async (analysis, id, jobId) => {
+		if (isNaN(id) || isNaN(jobId)) {
+			return false
+		}
+
+		if (analysis) {
+			return await job.findLabelsAnalysis(id, jobId)
+		} else {
+			return await job.findLabelsJob(id)
+		}
 	},
 	create: async (title, url, header, content) => {
 		if (typeof(title) !== 'string' || typeof(url) !== 'string' || typeof(header) !== 'string' || typeof(content) !== 'string') {
@@ -2297,38 +2379,9 @@ export const analysis = {
 	},
 }
 
-export const newResume = async (res, id) => {
-	if (COMMAND) {
-		const labels = await job.findLabels(id)
-
-		if (!labels) {
-			return false
-		}
-
-		const child = spawn(COMMAND, ARGS)
-
-		child.on('spawn', () => {
-			res.status(200)
-
-			labels.forEach((label) => child.stdin.write(`${label}\n`))
-			child.stdin.end()
-
-		})
-
-		child.stdout.on('data', (data) => {
-			res.send(data)
-		})
-
-		child.on('exit', () => {
-			res.end()
-		})
-
-		child.on('error', () => {
-			res.status(500).json({})
-		})
-
-		return true
-	} else {
-		return false
-	}
-}
+export const newResume = async (res, analysis, id, jobId) => await createResume(
+	spawn,
+	res,
+	() => analysis ? (jobId > 0 ? `analysis-${id}-${jobId}` : `analysis-${id}`) : id,
+	async () => await job.findLabels(analysis, id, jobId),
+)
