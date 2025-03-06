@@ -1,5 +1,7 @@
 import AnalysisLabels from './AnalysisLabels'
 
+import { ResumeAction } from '/src/Resume'
+
 function AnalysisJobs({ jobs, currentAnalysis, setCurrentAnalysis }) {
 	return (
 		<ol>
@@ -20,6 +22,7 @@ function AnalysisJobs({ jobs, currentAnalysis, setCurrentAnalysis }) {
 					) : (
 						<em>No URL</em>
 					)}
+					{ResumeAction.AnalysisJobs(currentAnalysis.id, id)}
 					<br/>
 					<br/>
 					<AnalysisLabels

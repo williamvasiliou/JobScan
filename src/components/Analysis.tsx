@@ -11,6 +11,8 @@ import { DATE, checkboxes as searchCheckboxes, analysisCheckboxes, dates } from 
 
 import { analysisTake } from '/src/Fetch'
 
+import { ResumeAction } from '/src/Resume'
+
 function newDateTime(dateTime) {
 	const newDate = new Date(dateTime)
 
@@ -198,6 +200,7 @@ function analysisView(currentAnalysis, setCurrentAnalysis, updatePreviousStart, 
 				type='checkbox'
 			/>
 			<label htmlFor={`analysis-${id}-updated`}>Updated</label>
+			{ResumeAction.Analysis(id)}
 			<hr/>
 			<h3>{count.labels} {noun.labels}</h3>
 			<AnalysisLabels

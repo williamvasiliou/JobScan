@@ -15,6 +15,8 @@ import { style } from '/src/Keyword'
 
 import { fetchCreate, fetchUpdate, fetchDelete } from '/src/Fetch'
 
+import { ResumeAction } from '/src/Resume'
+
 function Job(props) {
 	const {
 		job, updateJob,
@@ -279,6 +281,7 @@ function Job(props) {
 			) : (
 				[]
 			)}
+			{ResumeAction.Job(job.id)}
 			<style>
 				{style(colors)}
 			</style>
