@@ -58,6 +58,17 @@ export function middleware(app, prisma) {
 		await prismaQuery(res, async () => await prisma.job.findUnique(Number(req.params.id)))
 	})
 
+	app.get('/jobs/:id/resume', async (req, res) => {
+		try {
+			if (!await prisma.newResume(res, false, Number(req.params.id), 0)) {
+				res.status(500).json({})
+			}
+		} catch (e) {
+			console.log(e)
+			res.status(500).json({})
+		}
+	})
+
 	app.post('/jobs', async (req, res) => {
 		const { title, url, header, content } = req.body
 
@@ -229,6 +240,28 @@ export function middleware(app, prisma) {
 		await prismaQuery(res, async () => await prisma.analysis.findUnique(Number(req.params.id)))
 	})
 
+	app.get('/analysis/:id/resume', async (req, res) => {
+		try {
+			if (!await prisma.newResume(res, true, Number(req.params.id), 0)) {
+				res.status(500).json({})
+			}
+		} catch (e) {
+			console.log(e)
+			res.status(500).json({})
+		}
+	})
+
+	app.get('/analysis/:id/jobs/:jobId/resume', async (req, res) => {
+		try {
+			if (!await prisma.newResume(res, true, Number(req.params.id), Number(req.params.jobId))) {
+				res.status(500).json({})
+			}
+		} catch (e) {
+			console.log(e)
+			res.status(500).json({})
+		}
+	})
+
 	app.post('/analysis', async (req, res) => {
 		const { q, start, end, filter } = req.body
 
@@ -255,38 +288,5 @@ export function middleware(app, prisma) {
 
 	app.delete('/analysis/:id', async (req, res) => {
 		await prismaQuery(res, async () => await prisma.analysis.delete(Number(req.params.id)))
-	})
-
-	app.get('/resume/:id', async (req, res) => {
-		try {
-			if (!await prisma.newResume(res, false, Number(req.params.id), 0)) {
-				res.status(500).json({})
-			}
-		} catch (e) {
-			console.log(e)
-			res.status(500).json({})
-		}
-	})
-
-	app.get('/analysis/:id/resume', async (req, res) => {
-		try {
-			if (!await prisma.newResume(res, true, Number(req.params.id), 0)) {
-				res.status(500).json({})
-			}
-		} catch (e) {
-			console.log(e)
-			res.status(500).json({})
-		}
-	})
-
-	app.get('/analysis/:id/resume/:jobId', async (req, res) => {
-		try {
-			if (!await prisma.newResume(res, true, Number(req.params.id), Number(req.params.jobId))) {
-				res.status(500).json({})
-			}
-		} catch (e) {
-			console.log(e)
-			res.status(500).json({})
-		}
 	})
 }
