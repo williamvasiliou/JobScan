@@ -386,8 +386,10 @@ export const job = {
 				labels: {
 					select: {
 						analysisLabel: {
-							select: {
+							select: jobId > 0 ? {
 								analysisJobId: true,
+								analysisLabelId: true,
+							} : {
 								analysisLabelId: true,
 							},
 						},
@@ -449,9 +451,9 @@ export const job = {
 		}
 
 		return analysisLabelId.sort((previous, next) =>
-			analysisLabels[previous] > analysisLabels[next]
+			-(analysisLabels[previous] < analysisLabels[next])
 		).sort((previous, next) =>
-			rank[previous] < rank[next]
+			-(rank[previous] > rank[next])
 		).map((id) => analysisLabels[id])
 	},
 	findLabels: async (analysis, id, jobId) => {

@@ -57,7 +57,7 @@ export const ResumeAction = schema ? ({
 		<>
 			<br/>
 			<br/>
-			<a href={`/resume/${id}`} target='_blank'>Resume</a>
+			<a href={`/jobs/${id}/resume`} target='_blank'>Resume</a>
 		</>
 	),
 	Analysis: (id) => (
@@ -71,7 +71,7 @@ export const ResumeAction = schema ? ({
 		<>
 			<br/>
 			<br/>
-			<a href={`/analysis/${id}/resume/${jobId}`} target='_blank'>Resume</a>
+			<a href={`/analysis/${id}/jobs/${jobId}/resume`} target='_blank'>Resume</a>
 		</>
 	),
 }) : ({
