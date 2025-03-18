@@ -29,6 +29,18 @@ const jobSelect = {
 	},
 }
 
+const jobExportSelect = {
+	title: true,
+	url: true,
+	published: true,
+	sections: {
+		select: {
+			header: true,
+			content: true,
+		},
+	},
+}
+
 const jobContains = (item, search) => ({
 	[item]: {
 		contains: search,
@@ -467,6 +479,78 @@ export const job = {
 			return await job.findLabelsJob(id)
 		}
 	},
+	export: async (id) => ({
+		search: false,
+		jobs: [await prisma.job.findUniqueOrThrow({
+			where: { id },
+			select: jobExportSelect,
+		})],
+	}),
+	exportWhere: async (where, search) => (where ? ({
+		search,
+		jobs: await prisma.job.findMany({
+			where,
+			select: jobExportSelect,
+		})
+	}) : ({
+		search,
+		jobs: await prisma.job.findMany({
+			select: jobExportSelect,
+		})
+	})),
+	exportSimple: async (search) => await job.exportWhere(jobSearchSimpleWhere(search), {
+		search,
+		filter: 0,
+		start: '',
+		end: '',
+	}),
+	exportAdvanced: async (search, start, end, bits) => {
+		const hasNoText = noText(bits)
+		const hasNoDate = noDate(bits)
+		const filter = {
+			search,
+			filter: bits,
+			start,
+			end,
+		}
+
+		if (hasNoText && hasNoDate) {
+			return await job.exportWhere(false, filter)
+		} else if (hasNoText) {
+			const where = jobSearchDateWhere(start, end, bits)
+
+			return await job.exportWhere(where, filter)
+		} else if (hasNoDate) {
+			const where = jobSearchTextWhere(search, bits)
+
+			return await job.exportWhere(where, filter)
+		} else {
+			const whereDate = jobSearchDateWhere(start, end, bits)
+			const whereText = jobSearchTextWhere(search, bits)
+
+			if (whereDate && whereText) {
+				const where = {
+					...whereDate,
+					...whereText,
+				}
+
+				return await job.exportWhere(where, filter)
+			} else if (whereDate) {
+				return await job.exportWhere(whereDate, filter)
+			} else if (whereText) {
+				return await job.exportWhere(whereText, filter)
+			} else {
+				return await job.exportWhere(false, filter)
+			}
+		}
+	},
+	exportMany: async (search, start, end, filter) => {
+		if (isNaN(filter) || filter <= 0) {
+			return await job.exportSimple(search.trim())
+		} else {
+			return await job.exportAdvanced(search.trim(), start.trim(), end.trim(), filter & MAX)
+		}
+	},
 	create: async (title, url, header, content) => {
 		if (typeof(title) !== 'string' || typeof(url) !== 'string' || typeof(header) !== 'string' || typeof(content) !== 'string') {
 			return false
@@ -494,6 +578,62 @@ export const job = {
 		}
 
 		return false
+	},
+	import: async (jobs) => {
+		if (!(jobs instanceof Object) || (jobs instanceof Array) || !('jobs' in jobs) || !(jobs.jobs instanceof Array)) {
+			return false
+		}
+
+		const newJobs = jobs.jobs.filter((job) => (
+			(job instanceof Object) &&
+			!(job instanceof Array) &&
+			(Object.keys(job).length === 4) &&
+			('title' in job) &&
+			(typeof job.title === 'string') &&
+			('url' in job) &&
+			(typeof job.url === 'string') &&
+			('published' in job) &&
+			(job.published === null || (
+				typeof job.published === 'string' &&
+				!isNaN(Date.parse(job.published))
+			)) &&
+			('sections' in job) &&
+			(job.sections instanceof Array) &&
+			(job.sections.length > 0) &&
+			job.sections.every((section) => (
+				(section instanceof Object) &&
+				!(section instanceof Array) &&
+				(Object.keys(section).length === 2) &&
+				('header' in section) &&
+				(typeof section.header === 'string') &&
+				('content' in section) &&
+				(typeof section.content === 'string')
+			))
+		)).map(({ title, url, published, sections }) => ({
+			title: newTitle(title),
+			url: url.trim(),
+			published: published ? new Date(published) : null,
+			sections: {
+				create: sections.map(({ header, content }) => ({
+					header: newTitle(header),
+					content: newContent(content),
+				})),
+			},
+		})).filter(({ title, sections }) => (
+			title && sections.create.every(({ header, content }) => (
+				header && content
+			))
+		))
+
+		await Promise.all(newJobs.map(async (data) => {
+			await prisma.job.create({
+				data,
+			})
+		}))
+
+		return {
+			count: newJobs.length,
+		}
 	},
 	update: async (id, title, url) => {
 		if (isNaN(id) || typeof(title) !== 'string' || typeof(url) !== 'string') {

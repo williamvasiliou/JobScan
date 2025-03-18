@@ -54,8 +54,22 @@ export function middleware(app, prisma) {
 		}
 	})
 
+	app.get('/jobs/export', async (req, res) => {
+		const search = req.query.q?.trim() || ''
+
+		const start = req.query.start || ''
+		const end = req.query.end || ''
+		const filter = ((filter) => !isNaN(filter) && filter > 0 ? filter : 0)(Number(req.query.filter))
+
+		await prismaQuery(res, async () => await prisma.job.exportMany(search, start, end, filter))
+	})
+
 	app.get('/jobs/:id', async (req, res) => {
 		await prismaQuery(res, async () => await prisma.job.findUnique(Number(req.params.id)))
+	})
+
+	app.get('/jobs/:id/export', async (req, res) => {
+		await prismaQuery(res, async () => await prisma.job.export(Number(req.params.id)))
 	})
 
 	app.get('/jobs/:id/resume', async (req, res) => {
@@ -80,6 +94,10 @@ export function middleware(app, prisma) {
 				content,
 			)
 		))
+	})
+
+	app.post('/jobs/import', async (req, res) => {
+		await prismaQuery(res, async () => await prisma.job.import(req.body))
 	})
 
 	app.put('/jobs/:id', async (req, res) => {

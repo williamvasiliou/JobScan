@@ -3,10 +3,10 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Analyze job descriptions for keywords",
+  "description": "Analyze job descriptions for keywords.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/williamvasiliou/jobscan"
+    "url": "https://github.com/williamvasiliou/JobScan"
   },
   "author": "William Vasiliou",
   "license": "MIT",

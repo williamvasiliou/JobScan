@@ -1,6 +1,4 @@
-const COMMAND = ''
-const ARGS = []
-const OPTIONS = false
+import { COMMAND, ARGS, OPTIONS } from './ResumeCommand'
 
 const schema = typeof(COMMAND) === 'string' && COMMAND.trim().length > 0 &&
 	typeof(ARGS) === 'object' && ARGS.every((arg) => typeof(arg) === 'string' && arg.trim().length > 0) &&
