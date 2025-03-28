@@ -523,45 +523,149 @@ async function main() {
 		))
 	}))
 
-	await prisma.keywordsOnLabels.deleteMany()
-	await prisma.keyword.deleteMany()
-	await prisma.label.deleteMany()
-	await prisma.color.deleteMany()
+	await prisma.$transaction(async (tx) => {
+		const colorId = await tx.analysisColor.findMany({
+			where: {
+				colorId: {
+					not: null,
+				},
+				colorColor: null,
+			},
+			select: {
+				colorId: true,
+			},
+		})
 
-	const keywords = await prisma.keyword.createManyAndReturn({
-		data: Object.keys(set.keywords).map((keyword) => ({ keyword })),
-	})
+		const analysisColors = await tx.color.findMany({
+			where: {
+				id: {
+					in: colorId.map(({ colorId }) => colorId),
+				},
+			},
+			select: {
+				id: true,
+				color: true,
+			},
+		})
 
-	keywords.forEach(({ id, keyword }) => (
-		set.keywords[keyword] = id
-	))
+		await Promise.all(analysisColors.map(async ({ id, color }) => {
+			await tx.analysisColor.updateMany({
+				where: {
+					colorId: id,
+					colorColor: null,
+				},
+				data: {
+					colorId: null,
+					colorColor: color,
+				},
+			})
+		}))
 
-	const { id } = await prisma.color.create({
-		data: {
-			color: 'ff0000',
-		},
-		select: {
-			id: true,
-		},
-	})
+		await tx.analysisColor.updateMany({
+			where: {
+				colorId: {
+					not: null,
+				},
+				colorColor: {
+					not: null,
+				},
+			},
+			data: {
+				colorId: null,
+			},
+		})
 
-	const labels = await prisma.label.createManyAndReturn({
-		data: Object.keys(set.labels).map((label) => ({
-			label: label,
-			colorId: id,
-		})),
-	})
+		const labelId = await tx.analysisLabel.findMany({
+			where: {
+				labelId: {
+					not: null,
+				},
+				labelLabel: null,
+			},
+			select: {
+				labelId: true,
+			},
+		})
 
-	await prisma.keywordsOnLabels.createMany({
-		data: labels.map(({ id, label }) => (
-			set.labels[label].map((keyword) => ({
-				labelId: id,
-				keywordId: set.keywords[keyword],
-			}))
-		)).reduce((keywordsOnLabels, newList) => [
-			...keywordsOnLabels,
-			...newList,
-		], []),
+		const analysisLabels = await tx.label.findMany({
+			where: {
+				id: {
+					in: labelId.map(({ labelId }) => labelId),
+				},
+			},
+			select: {
+				id: true,
+				label: true,
+			},
+		})
+
+		await Promise.all(analysisLabels.map(async ({ id, label }) => {
+			await tx.analysisLabel.updateMany({
+				where: {
+					labelId: id,
+					labelLabel: null,
+				},
+				data: {
+					labelId: null,
+					labelLabel: label,
+				},
+			})
+		}))
+
+		await tx.analysisLabel.updateMany({
+			where: {
+				labelId: {
+					not: null,
+				},
+				labelLabel: {
+					not: null,
+				},
+			},
+			data: {
+				labelId: null,
+			},
+		})
+
+		await tx.keywordsOnLabels.deleteMany()
+		await tx.keyword.deleteMany()
+		await tx.label.deleteMany()
+		await tx.color.deleteMany()
+
+		const keywords = await tx.keyword.createManyAndReturn({
+			data: Object.keys(set.keywords).map((keyword) => ({ keyword })),
+		})
+
+		keywords.forEach(({ id, keyword }) => (
+			set.keywords[keyword] = id
+		))
+
+		const { id } = await tx.color.create({
+			data: {
+				color: 'ff0000',
+			},
+			select: {
+				id: true,
+			},
+		})
+
+		const labels = await tx.label.createManyAndReturn({
+			data: Object.keys(set.labels).map((label) => ({
+				label: label,
+				colorId: id,
+			})),
+		})
+
+		await tx.keywordsOnLabels.createMany({
+			data: labels.map(({ id, label }) => (
+				set.labels[label].map((keyword) => ({
+					labelId: id,
+					keywordId: set.keywords[keyword],
+				}))
+			)).reduce((keywordsOnLabels, newList) => [
+				...keywordsOnLabels,
+				...newList,
+			], []),
+		})
 	})
 }
 

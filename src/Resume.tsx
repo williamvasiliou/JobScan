@@ -1,8 +1,10 @@
 import { COMMAND, ARGS, OPTIONS } from './ResumeCommand'
 
-const schema = typeof(COMMAND) === 'string' && COMMAND.trim().length > 0 &&
-	typeof(ARGS) === 'object' && ARGS.every((arg) => typeof(arg) === 'string' && arg.trim().length > 0) &&
+const schema = (
+	typeof(COMMAND) === 'string' && COMMAND.trim().length > 0 &&
+	Array.isArray(ARGS) && ARGS.every((arg) => typeof(arg) === 'string' && arg.trim().length > 0) &&
 	(OPTIONS === false || typeof(OPTIONS) === 'object')
+)
 
 const newChild = OPTIONS ? (
 	async (spawn) => await spawn(COMMAND, ARGS, OPTIONS)

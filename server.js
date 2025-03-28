@@ -20,26 +20,26 @@ export function middleware(app, prisma) {
 
 			const start = req.query.start
 			const end = req.query.end
-			const filter = ((filter) => !isNaN(filter) && filter > 0 ? filter : 0)(Number(req.query.filter))
+			const filter = ((filter) => isFinite(filter) && filter > 0 ? filter : 0)(Number(req.query.filter))
 
 			const before = Number(req.query.before)
 			const after = Number(req.query.after)
 
 			const hasSearch = search || start || end || filter > 0
 
-			if (isNaN(before) && isNaN(after)) {
+			if (!isFinite(before) && !isFinite(after)) {
 				if (hasSearch) {
 					res.status(200).json(await prisma.job.findManySearch(search, start, end, filter, true, 0))
 				} else {
 					res.status(200).json(await prisma.job.findMany())
 				}
-			} else if (isNaN(before)) {
+			} else if (!isFinite(before)) {
 				if (hasSearch) {
 					res.status(200).json(await prisma.job.findManySearch(search, start, end, filter, true, after))
 				} else {
 					res.status(200).json(await prisma.job.findManyStart(true, after))
 				}
-			} else if (isNaN(after)) {
+			} else if (!isFinite(after)) {
 				if (hasSearch) {
 					res.status(200).json(await prisma.job.findManySearch(search, start, end, filter, false, before))
 				} else {
@@ -59,7 +59,7 @@ export function middleware(app, prisma) {
 
 		const start = req.query.start || ''
 		const end = req.query.end || ''
-		const filter = ((filter) => !isNaN(filter) && filter > 0 ? filter : 0)(Number(req.query.filter))
+		const filter = ((filter) => isFinite(filter) && filter > 0 ? filter : 0)(Number(req.query.filter))
 
 		await prismaQuery(res, async () => await prisma.job.exportMany(search, start, end, filter))
 	})
@@ -220,26 +220,26 @@ export function middleware(app, prisma) {
 
 			const start = req.query.start
 			const end = req.query.end
-			const filter = ((filter) => !isNaN(filter) && filter > 0 ? filter : 0)(Number(req.query.filter))
+			const filter = ((filter) => isFinite(filter) && filter > 0 ? filter : 0)(Number(req.query.filter))
 
 			const before = Number(req.query.before)
 			const after = Number(req.query.after)
 
 			const hasSearch = search || start || end || filter > 0
 
-			if (isNaN(before) && isNaN(after)) {
+			if (!isFinite(before) && !isFinite(after)) {
 				if (hasSearch) {
 					res.status(200).json(await prisma.analysis.findManySearch(search, start, end, filter, true, 0))
 				} else {
 					res.status(200).json(await prisma.analysis.findMany())
 				}
-			} else if (isNaN(before)) {
+			} else if (!isFinite(before)) {
 				if (hasSearch) {
 					res.status(200).json(await prisma.analysis.findManySearch(search, start, end, filter, true, after))
 				} else {
 					res.status(200).json(await prisma.analysis.findManyStart(true, after))
 				}
-			} else if (isNaN(after)) {
+			} else if (!isFinite(after)) {
 				if (hasSearch) {
 					res.status(200).json(await prisma.analysis.findManySearch(search, start, end, filter, false, before))
 				} else {
